@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.delta.mapper.OrderMapper">
+
+    <!-- ==================== resultMap ==================== -->
+    <resultMap id="OrderWithUser" type="com.delta.entity.Order">
+        <id property="id" column="id"/>
+        <result property="game" column="game"/>
+        <result property="detail" column="detail"/>
+        <result property="price" column="price"/>
+        <result property="status" column="status"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="boosterId" column="booster_id"/>
+        <result property="csId" column="cs_id"/>
+        <result property="serviceType" column="service_type"/>
+        <result property="sourceChannel" column="source_channel"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="customerNickname" column="customer_nickname"/>
+        <result property="boosterNickname" column="booster_nickname"/>
+    </resultMap>
+
+    <resultMap id="OrderWithCustomer" type="com.delta.entity.Order">
+        <id property="id" column="id"/>
+        <result property="game" column="game"/>
+        <result property="detail" column="detail"/>
+        <result property="price" column="price"/>
+        <result property="status" column="status"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="boosterId" column="booster_id"/>
+        <result property="csId" column="cs_id"/>
+        <result property="serviceType" column="service_type"/>
+        <result property="sourceChannel" column="source_channel"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="customerNickname" column="customer_nickname"/>
+    </resultMap>
+
+    <!-- ==================== 查询 ==================== -->
+    <select id="findById" resultMap="OrderWithUser">
+        SELECT o.*, u.nickname AS customer_nickname, ub.nickname AS booster_nickname
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        LEFT JOIN users ub ON o.booster_id = ub.id
+        WHERE o.id = #{id}
+    </select>
+
+    <select id="findByCustomer" resultMap="OrderWithCustomer">
+        SELECT o.*, ub.nickname AS booster_nickname
+        FROM orders o
+        LEFT JOIN users ub ON o.booster_id = ub.id
+        WHERE o.customer_id = #{customerId}
+        ORDER BY o.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCustomer" resultType="long">
+        SELECT count(*) FROM orders WHERE customer_id = #{customerId}
+    </select>
+
+    <select id="findPool" resultMap="OrderWithCustomer">
+        SELECT o.*, u.nickname AS customer_nickname
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        WHERE o.status = 'pending'
+        <if test="game != null and game != ''">
+            AND o.game = #{game}
+        </if>
+        ORDER BY o.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPool" resultType="long">
+        SELECT count(*) FROM orders WHERE status = 'pending'
+        <if test="game != null and game != ''">
+            AND game = #{game}
+        </if>
+    </select>
+
+    <select id="findByBooster" resultMap="OrderWithCustomer">
+        SELECT o.*, u.nickname AS customer_nickname
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        WHERE o.booster_id = #{boosterId}
+        ORDER BY o.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByBooster" resultType="long">
+        SELECT count(*) FROM orders WHERE booster_id = #{boosterId}
+    </select>
+
+    <select id="findAll" resultMap="OrderWithUser">
+        SELECT o.*, u.nickname AS customer_nickname, ub.nickname AS booster_nickname
+        FROM orders o
+        JOIN users u ON o.customer_id = u.id
+        LEFT JOIN users ub ON o.booster_id = ub.id
+        <where>
+            <if test="status != null and status != ''">
+                AND o.status = #{status}
+            </if>
+            <if test="game != null and game != ''">
+                AND o.game = #{game}
+            </if>
+        </where>
+        ORDER BY o.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT count(*) FROM orders
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="game != null and game != ''">
+                AND game = #{game}
+            </if>
+        </where>
+    </select>
+
+    <!-- ==================== 写操作 ==================== -->
+    <insert id="insert" parameterType="com.delta.entity.Order" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders (game, service_type, detail, price, status, customer_id, booster_id, cs_id, source_channel, created_at, updated_at)
+        VALUES (#{game}, #{serviceType}, #{detail}, #{price}, #{status}, #{customerId}, #{boosterId}, #{csId}, #{sourceChannel}, now(), now())
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE orders SET status = #{status}, updated_at = now() WHERE id = #{id}
+    </update>
+
+    <!-- 乐观锁接单 -->
+    <update id="claimOptimistic">
+        UPDATE orders
+        SET booster_id = #{boosterId}, status = 'assigned', updated_at = now()
+        WHERE id = #{id} AND status = 'pending'
+    </update>
+
+    <!-- 客服派单 -->
+    <update id="assign">
+        UPDATE orders
+        SET booster_id = #{boosterId}, cs_id = #{csId}, status = 'assigned', updated_at = now()
+        WHERE id = #{id} AND status = 'pending'
+    </update>
+
+</mapper>

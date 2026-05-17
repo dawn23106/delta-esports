@@ -1,0 +1,25 @@
+# Java
+target/
+*.class
+*.jar
+*.war
+*.log
+
+# Maven
+.mvn/
+
+# Node
+node_modules/
+dist/
+
+# Claude
+.claude/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
