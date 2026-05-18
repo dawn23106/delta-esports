@@ -3,14 +3,23 @@ package com.delta.entity;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 用户实体 — 对应数据库 users 表。
+ * 实体类只做数据承载，不写业务逻辑（贫血模型）。
+ *
+ * 角色(role) 说明：
+ *   player  — 玩家（注册默认角色），可下单
+ *   booster — 打手，可抢单/开始/完成
+ *   cs      — 客服，系统预置，可管理所有订单、派单、修改用户角色
+ */
 public class User {
     private Long id;
-    private String phone;
-    private String password;
-    private String nickname;
-    private String role;
-    private BigDecimal balance;
-    private Boolean isActive;
+    private String phone;            // 手机号（登录凭证）
+    private String password;         // BCrypt加密后的密码
+    private String nickname;         // 昵称
+    private String role;             // player / booster / cs
+    private BigDecimal balance;      // 账户余额
+    private Boolean isActive;        // 是否启用
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

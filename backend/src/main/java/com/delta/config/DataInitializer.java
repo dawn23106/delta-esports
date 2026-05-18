@@ -6,6 +6,13 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+/**
+ * 系统初始化器 — Spring Boot 启动后自动执行。
+ * CommandLineRunner.run() 在所有 Bean 初始化完成后调用。
+ *
+ * 这里用于自动创建客服账号（13800000000），只创建一次：
+ * 先查数据库是否有该手机号，有就跳过，没有才插入。
+ */
 @Component
 public class DataInitializer implements CommandLineRunner {
 

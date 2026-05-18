@@ -3,21 +3,38 @@ package com.delta.entity;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 订单实体 — 对应数据库 orders 表。
+ *
+ * 状态(status) 流转：
+ *   pending     — 待接单（玩家下单后的初始状态）
+ *   assigned    — 已接单（打手抢到或客服派单）
+ *   in_progress — 进行中（打手点开始）
+ *   completed   — 已完成（打手点完成）
+ *   cancelled   — 已取消（玩家或客服取消）
+ *
+ * 服务类型(serviceType)：
+ *   tech      — 技术代练（上分、竞技等）
+ *   entertain — 娱乐陪玩
+ *   quest     — 任务代练（刷任务、打材料）
+ */
 public class Order {
     private Long id;
-    private String game;
-    private String serviceType;     // tech/entertain/quest
-    private String detail;
-    private BigDecimal price;
-    private String status;
-    private Long customerId;
-    private Long boosterId;
-    private Long csId;
-    private String sourceChannel;   // 获客渠道
+    private String game;             // 游戏名（如"三角洲行动"）
+    private String serviceType;      // tech / entertain / quest
+    private String detail;           // 订单描述
+    private BigDecimal price;        // 价格
+    private String status;           // pending / assigned / in_progress / completed / cancelled
+    private Long customerId;         // 下单玩家ID
+    private Long boosterId;          // 接单打手ID（初始null）
+    private Long csId;               // 操作客服ID（客服创建/派单时记录）
+    private String sourceChannel;    // 获客渠道（web_h5、wechat_share等）
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private String customerNickname;
-    private String boosterNickname;
+
+    // 以下字段不在订单表中，是连表查询时填充的冗余字段（用于前端展示）
+    private String customerNickname; // 玩家昵称
+    private String boosterNickname;  // 打手昵称
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
