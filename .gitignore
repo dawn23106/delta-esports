@@ -1,0 +1,27 @@
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+
+# Frontend
+frontend-admin/node_modules/
+frontend-admin/dist/
+frontend-mobile/node_modules/
+frontend-mobile/dist/
+
+# IDE
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.tmp
