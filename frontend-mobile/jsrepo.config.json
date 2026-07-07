@@ -1,0 +1,9 @@
+{
+  "registries": {
+    "vue-bits": {
+      "url": "https://github.com/DavidHDev/vue-bits",
+      "branch": "main"
+    }
+  },
+  "output": "src/components/ui"
+}
