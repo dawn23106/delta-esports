@@ -11,8 +11,9 @@ frontend-admin/dist/
 frontend-mobile/node_modules/
 frontend-mobile/dist/
 
-# IDE
-.idea/
+# IDE (keep run configurations only)
+.idea/*
+!.idea/runConfigurations/
 *.iml
 .settings/
 .project

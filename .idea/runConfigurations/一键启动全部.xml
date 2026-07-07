@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="一键启动全部" type="CompoundRunConfigurationType">
+    <toRun name="后端_SpringBoot" type="SpringBootApplicationConfigurationType" />
+    <toRun name="前端_Mobile" type="js.build_tools.npm" />
+    <toRun name="前端_Admin" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>
