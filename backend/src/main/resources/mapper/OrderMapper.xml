@@ -144,4 +144,10 @@
         WHERE id = #{id} AND status = 'pending'
     </update>
 
+    <update id="cancelExpiredPending">
+        UPDATE orders
+        SET status = 'cancelled', updated_at = now()
+        WHERE status = 'pending' AND created_at &lt; #{cutoff}
+    </update>
+
 </mapper>

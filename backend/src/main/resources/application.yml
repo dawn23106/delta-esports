@@ -1,17 +1,21 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/delta_helper
-    username: root
-    password: 231062
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3307/delta_helper?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:never}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -19,7 +23,14 @@ mybatis:
     map-underscore-to-camel-case: true
 
 jwt:
-  access-secret: delta-access-secret-change-in-production
+  access-secret: ${JWT_ACCESS_SECRET:change-this-access-secret-before-production-32-bytes}
   access-ttl: 15m
-  refresh-secret: delta-refresh-secret-change-in-production
+  refresh-secret: ${JWT_REFRESH_SECRET:change-this-refresh-secret-before-production-32-bytes}
   refresh-ttl: 7d
+
+app:
+  cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
+  seed:
+    enabled: ${SEED_DEMO_USER:true}
+    cs-phone: ${DEMO_CS_PHONE:13800000000}
+    cs-password: ${DEMO_CS_PASSWORD:cs123456}

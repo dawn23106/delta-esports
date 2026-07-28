@@ -2,6 +2,7 @@ package com.delta;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Spring Boot 启动类。
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *   @ComponentScan  - 扫描当前包及其子包中的 @Component/@Service/@Controller
  */
 @SpringBootApplication
+@EnableScheduling
 public class DeltaApplication {
     public static void main(String[] args) {
         SpringApplication.run(DeltaApplication.class, args);

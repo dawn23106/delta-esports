@@ -71,11 +71,17 @@ public class AdminController {
 
     /** 获取所有打手列表（派单时下拉选择用） */
     @GetMapping("/boosters")
-    public Result<?> boosters() { return Result.ok(userMapper.findBoosters()); }
+    public Result<?> boosters(HttpServletRequest r) {
+        checkCs(r);
+        return Result.ok(userMapper.findBoosters());
+    }
 
     /** 用户列表 — 分页展示所有用户 */
     @GetMapping("/users")
-    public Result<?> users(@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+    public Result<?> users(@RequestParam(defaultValue = "1") int page,
+                           @RequestParam(defaultValue = "20") int pageSize,
+                           HttpServletRequest r) {
+        checkCs(r);
         int offset = (page - 1) * pageSize;
         return Result.ok(PageResult.of(userMapper.findAll(offset, pageSize), userMapper.count(), page, pageSize));
     }
@@ -84,6 +90,9 @@ public class AdminController {
     @PutMapping("/users/{id}/role")
     public Result<?> updateRole(@PathVariable Long id, @RequestParam String role, HttpServletRequest r) {
         checkCs(r);
+        if (!"player".equals(role) && !"booster".equals(role) && !"cs".equals(role)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "角色必须是 player、booster 或 cs");
+        }
         userMapper.updateRole(id, role);
         return Result.ok();
     }
