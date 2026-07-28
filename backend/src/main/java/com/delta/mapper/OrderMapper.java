@@ -2,6 +2,7 @@ package com.delta.mapper;
 
 import com.delta.entity.Order;
 import org.apache.ibatis.annotations.Mapper;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -50,4 +51,7 @@ public interface OrderMapper {
 
     /** 客服派单 — 跳过抢单直接assign给打手 */
     int assign(Long id, Long boosterId, Long csId);
+
+    /** Atomically cancels pending orders older than the configured timeout. */
+    int cancelExpiredPending(LocalDateTime cutoff);
 }

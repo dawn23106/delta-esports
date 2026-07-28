@@ -9,6 +9,7 @@ services:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     command: --default-authentication-plugin=mysql_native_password
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -26,6 +27,28 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  app:
+    build: .
+    profiles: ["full"]
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      DATABASE_URL: jdbc:mysql://mysql:3306/delta_helper?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: local-compose-access-secret-change-before-production
+      JWT_REFRESH_SECRET: local-compose-refresh-secret-change-before-production
+      CORS_ORIGINS: http://localhost:8080
+      SEED_DEMO_USER: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   mysql_data:

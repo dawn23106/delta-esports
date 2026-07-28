@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: delta-helper-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: demo
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: DEMO_CS_PHONE
+        value: "13800000000"
+      - key: DEMO_CS_PASSWORD
+        value: cs123456

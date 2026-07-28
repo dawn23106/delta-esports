@@ -1,8 +1,3 @@
--- 数据库初始化脚本 (手动执行或配置 spring.sql.init)
-CREATE DATABASE IF NOT EXISTS delta_helper DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE delta_helper;
-
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     phone VARCHAR(16) NOT NULL UNIQUE,
@@ -13,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+);
 
 CREATE TABLE IF NOT EXISTS orders (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -28,12 +23,12 @@ CREATE TABLE IF NOT EXISTS orders (
     source_channel VARCHAR(32),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_orders_status (status),
-    INDEX idx_orders_customer (customer_id),
-    INDEX idx_orders_booster (booster_id),
-    INDEX idx_orders_status_game (status, game),
     CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES users(id),
     CONSTRAINT fk_orders_booster FOREIGN KEY (booster_id) REFERENCES users(id),
     CONSTRAINT fk_orders_cs FOREIGN KEY (cs_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+);
 
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_booster ON orders(booster_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status_game ON orders(status, game);

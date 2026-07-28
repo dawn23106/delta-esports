@@ -64,6 +64,9 @@ public class AuthService {
         if (user == null || !BCrypt.checkpw(password, user.getPassword())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "手机号或密码错误");
         }
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "账号已停用");
+        }
         return generateTokens(user.getId(), user.getRole());
     }
 

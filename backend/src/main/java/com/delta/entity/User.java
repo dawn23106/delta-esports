@@ -1,5 +1,6 @@
 package com.delta.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -27,6 +28,7 @@ public class User {
     public void setId(Long id) { this.id = id; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+    @JsonIgnore
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
     public String getNickname() { return nickname; }

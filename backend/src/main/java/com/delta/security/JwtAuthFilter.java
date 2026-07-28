@@ -35,7 +35,7 @@ public class JwtAuthFilter extends HttpFilter {
 
     /** 白名单 — 这些接口不需要Token */
     private static final List<String> WHITELIST = List.of(
-            "/api/auth/login", "/api/auth/register", "/api/auth/refresh"
+            "/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/health"
     );
 
     @Override

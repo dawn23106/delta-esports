@@ -89,7 +89,7 @@ public class OrderService {
      */
     public Order claim(Long orderId, Long boosterId) {
         var booster = userMapper.findById(boosterId);
-        if (!"booster".equals(booster.getRole())) {
+        if (booster == null || !Boolean.TRUE.equals(booster.getIsActive()) || !"booster".equals(booster.getRole())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "仅打手可接单");
         }
         Order order = orderMapper.findById(orderId);
@@ -186,13 +186,27 @@ public class OrderService {
         if (!"pending".equals(order.getStatus())) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "只有待接单状态的订单才能派单");
         }
-        orderMapper.assign(orderId, boosterId, csId);
+        var booster = userMapper.findById(boosterId);
+        if (booster == null || !Boolean.TRUE.equals(booster.getIsActive()) || !"booster".equals(booster.getRole())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "指定用户不是可用服务者");
+        }
+        if (orderMapper.assign(orderId, boosterId, csId) == 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "订单状态已变化，请刷新后重试");
+        }
         return orderMapper.findById(orderId);
     }
 
     /** 客服直接创建订单 — 状态直接 assigned，跳过抢单 */
     public Order createByCs(Long customerId, Long boosterId, Long csId,
                             String game, String detail, BigDecimal price) {
+        var customer = userMapper.findById(customerId);
+        var booster = userMapper.findById(boosterId);
+        if (customer == null || !Boolean.TRUE.equals(customer.getIsActive())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "玩家不存在或已停用");
+        }
+        if (booster == null || !Boolean.TRUE.equals(booster.getIsActive()) || !"booster".equals(booster.getRole())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "指定用户不是可用服务者");
+        }
         Order order = new Order();
         order.setGame(game);
         order.setDetail(detail);

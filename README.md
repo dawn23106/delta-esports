@@ -1,111 +1,111 @@
-# 三角洲陪玩接单助手
+# 游戏陪练订单撮合平台
 
-三方撮合平台：**玩家下单 → 打手接单 → 客服管理**。
+一个可运行的多角色订单撮合系统：玩家发布需求，服务者并发抢单，客服负责派单和用户管理。
 
-## 技术栈
+## 在线演示
 
-| 层 | 技术 |
-|----|------|
-| 后端 | Spring Boot 3.3 + MyBatis + MySQL + Redis + JWT |
-| 前端(移动) | Vue 3 + Vite + Vant 4 (玩家端 & 打手端) |
-| 前端(管理) | Vue 3 + Vite + Element Plus (客服后台) |
-| 部署 | Docker Compose (MySQL + Redis) + 内网穿透 |
+部署后访问同一域名下的三个入口：
 
-## 快速启动
+- `/`：演示导航页
+- `/app/`：玩家与服务者移动端
+- `/admin/`：客服管理端
+- `/api/health`：健康检查
 
-### 1. 启动数据库
-```bash
-docker compose up -d
+演示客服账号默认为 `13800000000 / cs123456`，可通过环境变量修改。演示环境仅使用模拟订单，不涉及真实交易或支付。
+
+## 核心技术
+
+- Spring Boot 3.3、MyBatis、MySQL/H2、Redis、JWT
+- Vue 3、Vant、Element Plus、Vite
+- 乐观并发控制：`UPDATE ... WHERE status = 'pending'`
+- Redis `SETNX` 防止短时间重复下单
+- Access Token + Refresh Token 续期与退出
+- 数据库定时任务关闭 30 分钟未接订单
+- GitHub Actions 自动测试、前端构建和容器构建
+
+## 订单状态机
+
+```text
+pending -> assigned -> in_progress -> completed
+    |          |              |
+    +----------+--------------+-> cancelled
 ```
 
-### 2. 初始化数据库
-```bash
-mysql -h localhost -u root -proot < backend/src/main/resources/schema.sql
+抢单通过带状态条件的原子更新执行。并发请求中只有第一个请求能把 `pending` 改为 `assigned`，其余请求得到 `409` 业务冲突。
+
+## 一键启动演示模式
+
+演示模式使用内嵌 H2，不要求安装 MySQL 或 Redis：
+
+```powershell
+cd backend
+$env:SPRING_PROFILES_ACTIVE="demo"
+mvn spring-boot:run
 ```
 
-### 3. 启动后端
-```bash
+健康检查：`http://localhost:8080/api/health`
+
+## MySQL + Redis 本地开发
+
+```powershell
+docker compose up -d mysql redis
+Copy-Item .env.example .env
 cd backend
 mvn spring-boot:run
-# 后端运行在 http://localhost:8080
 ```
 
-### 4. 启动前端
-```bash
-# 移动端 (玩家 & 打手)
+数据库首次启动时会自动执行 `backend/src/main/resources/schema.sql`。前端分别运行：
+
+```powershell
 cd frontend-mobile
-npm install
+npm ci
 npm run dev
-# → http://localhost:5173
+```
 
-# 管理后台 (客服)
+```powershell
 cd frontend-admin
-npm install
+npm ci
 npm run dev
-# → http://localhost:5174
 ```
 
-## 预置账号
+## 测试
 
-| 角色 | 手机号 | 密码 |
-|------|--------|------|
-| 客服 | 13800000000 | cs123456 |
-| 玩家/打手 | 自行注册 | - |
+```powershell
+cd backend
+mvn test
 
-注意：新注册用户默认为玩家，客服可在管理后台将用户设为打手。
+cd ../frontend-mobile
+npm ci
+npm run build
 
-## 目录结构
-
-```
-delta-helper-java/
-├── README.md
-├── docker-compose.yml          # MySQL + Redis
-├── docs/                        # 设计文档 & 学习笔记
-├── backend/                     # Spring Boot 后端
-│   └── src/main/java/com/delta/
-│       ├── auth/                # 认证 (JWT)
-│       ├── user/                # 用户
-│       ├── order/               # 订单核心
-│       ├── config/              # 配置 (Redis/CORS/JWT)
-│       └── common/              # 通用 (Result/异常)
-├── frontend-mobile/             # Vue 3 移动端 H5
-└── frontend-admin/              # Vue 3 管理后台
+cd ../frontend-admin
+npm ci
+npm run build
 ```
 
-## 订单状态流转
+后端测试覆盖：
 
-```
-pending(待接单) → assigned(已接单) → in_progress(进行中) → completed(已完成)
-    ↓                  ↓                  ↓
-cancelled(已取消)  cancelled          cancelled
-```
+- 乐观锁抢单成功与并发冲突
+- 非服务者越权抢单
+- 客服派单并发冲突
+- 用户密码哈希不进入 JSON 响应
+- 超时订单扫描任务
 
-## API 概览
+## 部署
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | /api/auth/register | 注册 |
-| POST | /api/auth/login | 登录 |
-| GET | /api/users/me | 当前用户信息 |
-| POST | /api/orders | 玩家下单 |
-| GET | /api/orders/my | 我的订单 |
-| GET | /api/orders/pool | 订单池(打手) |
-| POST | /api/orders/{id}/claim | 接单 |
-| POST | /api/orders/{id}/start | 开始 |
-| POST | /api/orders/{id}/complete | 完成 |
-| POST | /api/orders/{id}/cancel | 取消 |
-| GET | /api/admin/orders | 客服全量订单 |
-| POST | /api/admin/orders | 客服创建订单 |
-| POST | /api/admin/orders/{id}/assign | 派单 |
+仓库包含多阶段 `Dockerfile`，会构建两个 Vue 前端并打包进 Spring Boot。`render.yaml` 可用于 Render Blueprint 部署：
 
-## 外网访问
+1. 在 Render 选择 **New Blueprint Instance**。
+2. 连接本仓库。
+3. Render 自动读取 `render.yaml` 并生成 JWT 密钥。
+4. 部署成功后访问服务根地址。
 
-学生零成本方案：用 frp 或 ngrok 内网穿透。
+免费演示配置使用 H2 文件数据库，实例重建后数据可能重置。正式环境应连接托管 MySQL 与 Redis，并替换全部默认凭据。
 
-```bash
-# ngrok (最简单)
-ngrok http 8080   # 后端
-ngrok http 5173   # 移动端
-```
+## 安全说明
 
-把生成的后端 URL 填到前端 vite.config.ts 的 proxy 里即可。
+- 数据库密码、JWT 密钥和 CORS 来源全部由环境变量提供。
+- 用户密码使用 BCrypt 哈希，实体序列化时强制忽略密码字段。
+- 后台接口统一检查客服角色。
+- 玩家只能查询和取消自己的订单，服务者只能操作分配给自己的订单。
+- 项目不接入真实支付，不处理真实陪练交易。
