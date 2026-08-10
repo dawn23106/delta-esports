@@ -1,6 +1,7 @@
 package com.delta.esports.controller;
 
 import com.delta.esports.common.Result;
+import com.delta.esports.config.RequireRole;
 import com.delta.esports.service.GiftService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,13 +20,26 @@ public class GiftController {
     private GiftService giftService;
 
     @Operation(summary = "赠送礼物")
-    @PostMapping("/send")
+    @RequireRole("boss")
+    @PostMapping({"", "/send"})
     public Result<?> send(HttpServletRequest request,
-                          @RequestParam Long receiverId,
+                          @RequestParam(name = "boosterId", required = false) Long boosterId,
+                          @RequestParam(name = "receiverId", required = false) Long receiverId,
                           @RequestParam String giftName,
-                          @RequestParam BigDecimal price,
+                          @RequestParam(name = "amount", required = false) BigDecimal amount,
+                          @RequestParam(name = "price", required = false) BigDecimal price,
                           @RequestParam(required = false) String message) {
         Long userId = (Long) request.getAttribute("userId");
-        return Result.success(giftService.sendGift(userId, receiverId, giftName, price, message));
+        Long target = boosterId != null ? boosterId : receiverId;
+        BigDecimal actualAmount = amount != null ? amount : price;
+        return Result.success(giftService.sendGift(userId, target, giftName, actualAmount, message));
+    }
+
+    @GetMapping("/sent")
+    public Result<?> sent(HttpServletRequest request,
+                          @RequestParam(defaultValue = "1") int page,
+                          @RequestParam(defaultValue = "20") int size) {
+        Long userId = (Long) request.getAttribute("userId");
+        return Result.success(giftService.sentBy(userId, page, size));
     }
 }

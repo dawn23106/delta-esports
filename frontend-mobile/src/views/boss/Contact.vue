@@ -15,130 +15,161 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="page">
-    <van-nav-bar title="联系客服" left-arrow @click-left="$router.back()" fixed placeholder />
+  <main class="mobile-page no-tabbar">
+    <van-nav-bar title="联系客服" left-arrow @click-left="$router.back()" />
 
-    <div class="content">
-      <!-- 客服信息卡片 -->
-      <div class="contact-card">
-        <div class="contact-icon-wrap">
-          <span class="text-4xl">🎧</span>
+    <section class="contact-card">
+      <div class="contact-icon">
+        <span>🎧</span>
+      </div>
+      <strong class="contact-phone">400-123-4567</strong>
+      <p class="contact-hours">客服在线时间：每天 9:00 - 24:00</p>
+      <van-button round block type="primary" class="call-btn" color="linear-gradient(135deg, #3157ff, #08b6d8)">
+        <a href="tel:400-123-4567" class="call-link">拨打电话</a>
+      </van-button>
+    </section>
+
+    <div class="section-title">常见问题</div>
+    <section class="mobile-card faq-card">
+      <div class="faq-item">
+        <strong>如何下单？</strong>
+        <p>选择服务 → 填写信息 → 等待匹配</p>
+      </div>
+      <div class="faq-item">
+        <strong>订单如何进行？</strong>
+        <p>匹配陪陪后开始代练，完成后确认</p>
+      </div>
+      <div class="faq-item">
+        <strong>退款规则是什么？</strong>
+        <p>不达标退50%，超时退全额</p>
+      </div>
+      <div class="faq-item">
+        <strong>如何评价陪陪？</strong>
+        <p>订单确认后即可评价</p>
+      </div>
+    </section>
+
+    <template v-if="announcements.length">
+      <div class="section-title">最新公告</div>
+      <section class="mobile-card ann-card">
+        <div v-for="(a, i) in announcements.filter((a: any) => a.isActive).slice(0, 3)" :key="a.id" class="ann-item" :class="{ last: i === Math.min(announcements.filter((a: any) => a.isActive).length, 3) - 1 }">
+          <strong>{{ a.title }}</strong>
+          <p>{{ a.content }}</p>
         </div>
-        <div class="contact-phone">400-123-4567</div>
-        <div class="contact-hours">客服在线时间：每天 9:00 - 24:00</div>
-        <van-button round block type="primary" class="call-btn" color="linear-gradient(135deg, #6366f1, #8b5cf6)">
-          <a href="tel:400-123-4567" class="call-link">拨打电话</a>
-        </van-button>
-      </div>
-
-      <!-- 快捷入口 -->
-      <div class="quick-links">
-        <div class="section-title">常见问题</div>
-        <van-cell-group inset>
-          <van-cell title="如何下单？" is-link label="选择服务 → 填写信息 → 等待匹配" />
-          <van-cell title="订单如何进行？" is-link label="匹配陪陪后开始代练，完成后确认" />
-          <van-cell title="退款规则是什么？" is-link label="不达标退50%，超时退全额" />
-          <van-cell title="如何评价陪陪？" is-link label="订单确认后即可评价" />
-        </van-cell-group>
-      </div>
-
-      <!-- 公告 -->
-      <div class="announcements" v-if="announcements.length">
-        <div class="section-title">最新公告</div>
-        <div class="ann-list">
-          <div v-for="a in announcements.filter((a: any) => a.isActive).slice(0, 3)" :key="a.id" class="ann-item">
-            <div class="ann-title">{{ a.title }}</div>
-            <div class="ann-content">{{ a.content }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+      </section>
+    </template>
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f8fafc;
-}
-.content {
-  padding: 16px;
-}
 .contact-card {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 32px 24px;
   text-align: center;
   color: #fff;
-  margin-bottom: 24px;
-  box-shadow: 0 8px 32px rgba(99,102,241,0.25);
+  margin-bottom: 22px;
+  background: linear-gradient(135deg, rgba(16, 19, 35, .78), rgba(49, 87, 255, .64)),
+    url('https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=1000&h=900&fit=crop');
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 18px 42px rgba(16, 24, 40, .18);
 }
-.contact-icon-wrap {
+
+.contact-icon {
   margin-bottom: 12px;
+  font-size: 42px;
 }
+
 .contact-phone {
+  display: block;
   font-size: 26px;
-  font-weight: 800;
+  font-weight: 950;
   letter-spacing: 2px;
   margin-bottom: 6px;
 }
+
 .contact-hours {
+  margin: 0 0 20px;
   font-size: 13px;
-  opacity: 0.8;
-  margin-bottom: 20px;
+  opacity: .78;
 }
+
 .call-btn {
-  max-width: 200px;
+  max-width: 210px;
   margin: 0 auto;
-  height: 44px !important;
-  border-radius: 14px !important;
 }
+
 .call-link {
   color: #fff;
   text-decoration: none;
 }
 
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #94a3b8;
-  padding: 0 8px 8px;
-  margin-top: 8px;
+.faq-card {
+  margin-bottom: 22px;
 }
 
-.quick-links {
-  margin-bottom: 24px;
-}
-
-.announcements {
-  margin-top: 8px;
-}
-.ann-list {
-  background: #fff;
-  border-radius: 16px;
-  padding: 8px 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-  border: 1px solid #f1f5f9;
-}
-.ann-item {
+.faq-item {
   padding: 12px 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--mobile-line);
 }
-.ann-item:last-child {
-  border-bottom: none;
+
+.faq-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
-.ann-title {
+
+.faq-item:first-child {
+  padding-top: 0;
+}
+
+.faq-item strong {
+  display: block;
+  color: var(--mobile-ink);
   font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
+  font-weight: 800;
 }
-.ann-content {
+
+.faq-item p {
+  margin: 4px 0 0;
+  color: var(--mobile-muted);
   font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.ann-card {
+  display: grid;
+  gap: 0;
+}
+
+.ann-item {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--mobile-line);
+}
+
+.ann-item.last {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ann-item:first-child {
+  padding-top: 0;
+}
+
+.ann-item strong {
+  display: block;
+  color: var(--mobile-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ann-item p {
+  margin: 5px 0 0;
+  color: var(--mobile-muted);
+  font-size: 12px;
+  line-height: 1.55;
   display: -webkit-box;
+  overflow: hidden;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 </style>

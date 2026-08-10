@@ -12,7 +12,7 @@ const form = ref<any>({ category: '陪玩专区', name: '', basePrice: 0, priceU
 
 async function load() {
   loading.value = true
-  try { const res: any = await request.get('/services'); services.value = res || [] } catch { }
+  try { const res: any = await request.get('/admin/services'); services.value = res || [] } catch { }
   finally { loading.value = false }
 }
 
@@ -58,7 +58,7 @@ onMounted(load)
       <el-table-column prop="priceUnit" label="单位" width="60">
         <template #default="{ row }">{{ row.priceUnit === 'hour' ? '小时' : '局' }}</template>
       </el-table-column>
-      <el-table-column prop="guaranteeDesc" label="保底描述" min-width="200" />
+      <el-table-column prop="guaranteeDesc" label="服务说明" min-width="200" />
       <el-table-column label="状态" width="80">
         <template #default="{ row }"><el-tag :type="row.isActive ? 'success' : 'info'" size="small">{{ row.isActive ? '上架' : '下架' }}</el-tag></template>
       </el-table-column>
@@ -78,7 +78,7 @@ onMounted(load)
         <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="价格"><el-input-number v-model="form.basePrice" :min="0" :precision="2" /></el-form-item>
         <el-form-item label="单位"><el-select v-model="form.priceUnit"><el-option label="小时" value="hour" /><el-option label="局" value="round" /></el-select></el-form-item>
-        <el-form-item label="保底描述"><el-input v-model="form.guaranteeDesc" /></el-form-item>
+        <el-form-item label="服务说明"><el-input v-model="form.guaranteeDesc" /></el-form-item>
         <el-form-item label="退款规则"><el-input v-model="form.refundPolicy" /></el-form-item>
         <el-form-item label="封面图片">
           <FileUpload v-model="form.coverImage" />

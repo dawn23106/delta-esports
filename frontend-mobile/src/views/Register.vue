@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
 import { register as registerApi } from '../api/auth'
 import { useAuthStore } from '../store/auth'
-import { showToast } from 'vant'
-import LiquidBackground from '../components/LiquidBackground.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -16,97 +15,197 @@ const loading = ref(false)
 const errorMsg = ref('')
 
 const roleOptions = [
-  { value: 'boss' as const, label: '我是老板', desc: '找陪玩、下单', icon: '👑' },
-  { value: 'booster' as const, label: '我是陪陪', desc: '接单赚钱', icon: '⚡' },
+  { value: 'boss' as const, label: '我是老板', desc: '下单找陪玩', icon: 'manager-o' },
+  { value: 'booster' as const, label: '我是陪玩', desc: '接单赚收益', icon: 'medal-o' },
 ]
 
 async function handleRegister() {
   errorMsg.value = ''
-  if (!phone.value) { errorMsg.value = '请输入手机号'; return }
-  if (!/^1[3-9]\d{9}$/.test(phone.value)) { errorMsg.value = '手机号格式不正确'; return }
-  if (!nickname.value.trim()) { errorMsg.value = '请输入昵称'; return }
-  if (!password.value || password.value.length < 6) { errorMsg.value = '密码至少6位'; return }
+  if (!/^1[3-9]\d{9}$/.test(phone.value)) {
+    errorMsg.value = '请输入正确的手机号'
+    return
+  }
+  if (!nickname.value.trim()) {
+    errorMsg.value = '请输入昵称'
+    return
+  }
+  if (!password.value || password.value.length < 6) {
+    errorMsg.value = '密码至少 6 位'
+    return
+  }
+
   loading.value = true
   try {
-    const res: any = await registerApi(phone.value, password.value, nickname.value.trim(), role.value)
-    auth.setAuth(res, true)
-    showToast('注册成功！')
+    const result: any = await registerApi(phone.value, password.value, nickname.value.trim(), role.value)
+    auth.setAuth(result, true)
+    showToast({ message: '注册成功', icon: 'success' })
     router.push(role.value === 'booster' ? '/booster/pool' : '/boss/home')
-  } catch (e: any) {
-    errorMsg.value = e?.response?.data?.message || '注册失败，请重试'
-  } finally { loading.value = false }
+  } catch (error: any) {
+    errorMsg.value = error?.response?.data?.message || '注册失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
 <template>
-  <LiquidBackground>
-    <div class="reg-page">
-      <div class="logo-area">
-        <div class="logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" class="logo-svg">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-          </svg>
-        </div>
-        <h1>创建账号</h1>
-        <p>加入沧月电竞</p>
+  <main class="auth-page">
+    <section class="brand-panel">
+      <div class="brand-mark">
+        <van-icon name="plus" />
+      </div>
+      <h1>创建账号</h1>
+      <p>选择身份后进入对应移动端工作台。</p>
+    </section>
+
+    <section class="auth-card">
+      <div class="auth-title">
+        <span>加入沧月</span>
+        <router-link to="/login">去登录</router-link>
       </div>
 
-      <div class="card">
-        <input v-model="phone" type="tel" maxlength="11" placeholder="手机号" class="input" />
-        <input v-model="nickname" type="text" maxlength="20" placeholder="昵称" class="input" />
-        <input v-model="password" type="password" placeholder="密码（至少6位）" class="input" @keyup.enter="handleRegister" />
+      <van-field v-model="phone" type="tel" maxlength="11" label="手机号" placeholder="请输入手机号" clearable />
+      <van-field v-model="nickname" maxlength="20" label="昵称" placeholder="请输入昵称" clearable />
+      <van-field v-model="password" type="password" label="密码" placeholder="至少 6 位" clearable @keyup.enter="handleRegister" />
 
-        <div class="role-row">
-          <div v-for="r in roleOptions" :key="r.value"
-            :class="['role-card', { active: role === r.value }]" @click="role = r.value">
-            <span class="role-emoji">{{ r.icon }}</span>
-            <div>
-              <div class="role-label">{{ r.label }}</div>
-              <div class="role-desc">{{ r.desc }}</div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="errorMsg" class="error">{{ errorMsg }}</div>
-
-        <button class="btn" :disabled="loading" @click="handleRegister">
-          {{ loading ? '注册中...' : '注 册' }}
+      <div class="role-grid">
+        <button
+          v-for="option in roleOptions"
+          :key="option.value"
+          type="button"
+          class="role-card"
+          :class="{ active: role === option.value }"
+          @click="role = option.value"
+        >
+          <van-icon :name="option.icon" />
+          <span>{{ option.label }}</span>
+          <small>{{ option.desc }}</small>
         </button>
       </div>
 
-      <div class="links">
-        <router-link to="/login" class="link">已有账号？去登录</router-link>
-      </div>
-    </div>
-  </LiquidBackground>
+      <div v-if="errorMsg" class="form-error">{{ errorMsg }}</div>
+
+      <van-button block round type="primary" size="large" :loading="loading" color="linear-gradient(135deg, #3157ff, #08b6d8)" @click="handleRegister">
+        注册并进入
+      </van-button>
+    </section>
+  </main>
 </template>
 
 <style scoped>
-.reg-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 28px; }
+.auth-page {
+  min-height: 100vh;
+  padding: 26px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  background:
+    linear-gradient(135deg, rgba(16,19,35,.74), rgba(8,182,216,.42)),
+    url('https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=1000&h=1400&fit=crop');
+  background-size: cover;
+  background-position: center;
+}
 
-.logo-area { text-align: center; margin-bottom: 32px; }
-.logo-icon { width: 64px; height: 64px; border-radius: 20px; background: rgba(255,255,255,.15); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; border: 2px solid rgba(255,255,255,.2); }
-.logo-svg { width: 32px; height: 32px; }
-.logo-area h1 { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 0; }
-.logo-area p { font-size: 12px; color: rgba(255,255,255,.5); letter-spacing: 4px; margin-top: 4px; }
+.brand-panel {
+  color: #fff;
+}
 
-.card { width: 100%; max-width: 360px; background: rgba(255,255,255,.1); backdrop-filter: blur(20px); border-radius: 20px; padding: 24px 20px; border: 1px solid rgba(255,255,255,.15); }
-.input { width: 100%; padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.1); color: #fff; font-size: 15px; outline: none; margin-bottom: 14px; box-sizing: border-box; }
-.input::placeholder { color: rgba(255,255,255,.4); }
-.input:focus { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.18); }
+.brand-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 19px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.22);
+  backdrop-filter: blur(18px);
+  font-size: 28px;
+}
 
-.role-row { display: flex; gap: 10px; margin-bottom: 14px; }
-.role-card { flex: 1; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.06); border: 2px solid rgba(255,255,255,.08); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all .2s; }
-.role-card.active { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.3); }
-.role-emoji { font-size: 24px; }
-.role-label { font-size: 14px; font-weight: 600; color: #fff; }
-.role-desc { font-size: 11px; color: rgba(255,255,255,.5); }
+.brand-panel h1 {
+  margin: 16px 0 8px;
+  font-size: 32px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
 
-.error { background: rgba(239,68,68,.2); border: 1px solid rgba(239,68,68,.4); border-radius: 10px; padding: 10px 14px; color: #fecaca; font-size: 13px; margin-bottom: 14px; }
+.brand-panel p {
+  margin: 0;
+  color: rgba(255,255,255,.76);
+  font-size: 14px;
+}
 
-.btn { width: 100%; padding: 14px; border: none; border-radius: 14px; background: #fff; color: #6366f1; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: 4px; transition: all .2s; }
-.btn:disabled { opacity: .5; }
+.auth-card {
+  border-radius: 24px;
+  background: rgba(255,255,255,.93);
+  backdrop-filter: blur(20px);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 24px 60px rgba(16,24,40,.26);
+}
 
-.links { margin-top: 24px; }
-.link { color: rgba(255,255,255,.7); font-size: 13px; text-decoration: none; }
+.auth-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.auth-title span {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.auth-title a {
+  color: var(--mobile-brand);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.role-card {
+  border: 1px solid var(--mobile-line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 10px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--mobile-muted);
+}
+
+.role-card .van-icon {
+  font-size: 24px;
+}
+
+.role-card span {
+  color: var(--mobile-ink);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.role-card small {
+  font-size: 11px;
+}
+
+.role-card.active {
+  border-color: rgba(49,87,255,.32);
+  background: #eef4ff;
+  color: var(--mobile-brand);
+}
+
+.form-error {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff1f0;
+  color: var(--mobile-danger);
+  font-size: 13px;
+}
 </style>

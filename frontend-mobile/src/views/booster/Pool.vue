@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getOrderPool, claimOrder } from '../../api/orders'
-import { showToast, showLoadingToast, closeToast } from 'vant'
+import { onMounted, ref } from 'vue'
+import { closeToast, showLoadingToast, showToast } from 'vant'
+import { claimOrder, getOrderPool } from '../../api/orders'
 import { useAuthGuard } from '../../composables/useAuthGuard'
+import MobileTabbar from '../../components/MobileTabbar.vue'
 
-const active = ref(0)
 const orders = ref<any[]>([])
 const refreshing = ref(false)
 const { requireLogin } = useAuthGuard()
@@ -12,267 +12,149 @@ const { requireLogin } = useAuthGuard()
 async function loadPool() {
   refreshing.value = true
   try {
-    const res: any = await getOrderPool(1, 50)
-    orders.value = res.records || []
-  } catch { } finally { refreshing.value = false }
+    const result: any = await getOrderPool(1, 50)
+    orders.value = result.records || []
+  } finally {
+    refreshing.value = false
+  }
 }
 
 async function handleClaim(id: number) {
   if (!await requireLogin('抢单')) return
-  showLoadingToast('抢单中...')
+  showLoadingToast({ message: '正在抢单', duration: 0 })
   try {
     await claimOrder(id)
     closeToast()
-    showToast('抢单成功！')
+    showToast({ message: '抢单成功', icon: 'success' })
     loadPool()
-  } catch (e: any) {
+  } catch (error: any) {
     closeToast()
-    showToast(e?.response?.data?.message || '抢单失败')
+    showToast(error?.response?.data?.message || '抢单失败')
   }
 }
 
-function timeAgo(t: string) {
-  if (!t) return ''
-  const d = new Date(t)
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return `${mins}分钟前`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}小时前`
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+function timeAgo(value: string) {
+  if (!value) return ''
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes} 分钟前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} 小时前`
+  return new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
 onMounted(loadPool)
 </script>
 
 <template>
-  <div class="page">
-    <!-- 顶部横幅 -->
-    <div class="hero">
-      <div class="hero-bg"></div>
-      <div class="hero-content">
-        <div class="hero-title">订单池</div>
-        <div class="hero-sub">抢单接单，随时开打</div>
-        <div class="hero-stat">
-          <span class="hero-num">{{ orders.length }}</span>
-          <span class="hero-label">个可抢订单</span>
-        </div>
+  <main class="mobile-page">
+    <section class="mobile-hero pool-hero">
+      <div class="eyebrow">Order Pool</div>
+      <h1 class="page-title">订单池</h1>
+      <p class="page-subtitle">空闲时快速接单，重点看地图、金额和备注。</p>
+      <div class="metric-grid hero-metrics">
+        <div class="metric"><strong>{{ orders.length }}</strong><span>可抢</span></div>
+        <div class="metric"><strong>实时</strong><span>刷新</span></div>
+        <div class="metric"><strong>安全</strong><span>结算</span></div>
       </div>
-    </div>
+    </section>
 
-    <!-- 订单列表 -->
-    <van-pull-refresh v-model="refreshing" @refresh="loadPool" class="pull-wrap">
-      <div class="list" v-if="orders.length">
-        <div v-for="o in orders" :key="o.id" class="order-card">
-          <div class="card-head">
-            <div class="card-id">#{{ o.id }}</div>
-            <div class="card-price">¥<span class="card-price-num">{{ o.amount }}</span></div>
+    <van-pull-refresh v-model="refreshing" @refresh="loadPool">
+      <section v-if="orders.length" class="order-list">
+        <article v-for="order in orders" :key="order.id" class="pool-card">
+          <div class="pool-head">
+            <span>订单 #{{ order.id }}</span>
+            <strong>￥{{ order.amount }}</strong>
           </div>
-          <div class="card-tags">
-            <span class="tag" v-if="o.gameMap">🗺️ {{ o.gameMap }}</span>
-            <span class="tag time">🕐 {{ timeAgo(o.createdAt) }}</span>
+          <div class="pool-tags">
+            <span>{{ order.gameMap || '未指定地图' }}</span>
+            <span>{{ timeAgo(order.createdAt) }}</span>
           </div>
-          <div class="card-note" v-if="o.bossNote">
-            <span class="note-label">备注</span>
-            {{ o.bossNote }}
-          </div>
-          <van-button round block type="primary" class="claim-btn" @click="handleClaim(o.id)"
-            color="linear-gradient(135deg, #6366f1, #8b5cf6)">
+          <p v-if="order.bossNote">{{ order.bossNote }}</p>
+          <van-button block round color="linear-gradient(135deg, #12b76a, #08b6d8)" @click="handleClaim(order.id)">
             立即抢单
           </van-button>
-        </div>
-      </div>
+        </article>
+      </section>
 
-      <!-- 空状态 -->
-      <div v-else-if="!refreshing" class="empty">
-        <div class="empty-art">
-          <span class="empty-emoji">🍵</span>
+      <div v-else-if="!refreshing" class="empty-state">
+        <div>
+          <h3>暂无可抢订单</h3>
+          <p>保持在线，新的老板订单会出现在这里。</p>
         </div>
-        <div class="empty-title">暂无可抢订单</div>
-        <div class="empty-desc">喝杯茶等等，老板们正在赶来</div>
       </div>
     </van-pull-refresh>
 
-    <van-tabbar v-model="active" route :border="false" active-color="#6366f1" inactive-color="#94a3b8" safe-area-inset-bottom class="tabbar">
-      <van-tabbar-item icon="orders-o" to="/booster/pool">订单池</van-tabbar-item>
-      <van-tabbar-item icon="logistics" to="/booster/orders">进行中</van-tabbar-item>
-      <van-tabbar-item icon="user-o" to="/booster/profile">我的</van-tabbar-item>
-    </van-tabbar>
-  </div>
+    <MobileTabbar role="booster" />
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f8fafc;
-  padding-bottom: 60px;
+.pool-hero {
+  background-image:
+    linear-gradient(135deg, rgba(16,19,35,.76), rgba(18,183,106,.44)),
+    url('https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=1000&h=900&fit=crop');
 }
 
-/* 顶部横幅 */
-.hero {
-  position: relative;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  padding: 32px 20px 40px;
-  overflow: hidden;
-}
-.hero-bg {
-  position: absolute;
-  top: -30px;
-  right: -30px;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.08);
-}
-.hero-content {
-  position: relative;
-  z-index: 1;
-}
-.hero-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: 1px;
-}
-.hero-sub {
-  font-size: 13px;
-  color: rgba(255,255,255,0.7);
-  margin-top: 4px;
-}
-.hero-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-top: 16px;
-}
-.hero-num {
-  font-size: 36px;
-  font-weight: 800;
-  color: #fff;
-}
-.hero-label {
-  font-size: 14px;
-  color: rgba(255,255,255,0.6);
+.hero-metrics,
+.order-list {
+  margin-top: 18px;
 }
 
-.pull-wrap {
-  margin-top: -16px;
-  border-radius: 20px 20px 0 0;
-  background: #f8fafc;
-  position: relative;
-  z-index: 2;
-  min-height: 60vh;
-}
-
-/* 订单卡片 */
-.list {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
+.order-list {
+  display: grid;
   gap: 12px;
 }
-.order-card {
-  background: #fff;
-  border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1px solid #f1f5f9;
+
+.pool-card {
+  border: 1px solid rgba(228,231,236,.95);
+  border-radius: 20px;
+  background: rgba(255,255,255,.92);
+  padding: 16px;
+  box-shadow: 0 10px 26px rgba(16,24,40,.06);
 }
-.card-head {
+
+.pool-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
 }
-.card-id {
+
+.pool-head span {
+  color: var(--mobile-muted);
   font-size: 13px;
-  font-weight: 600;
-  color: #64748b;
+  font-weight: 750;
 }
-.card-price {
-  font-size: 13px;
-  color: #6366f1;
-  font-weight: 500;
+
+.pool-head strong {
+  color: var(--mobile-brand);
+  font-size: 24px;
+  font-weight: 950;
 }
-.card-price-num {
-  font-size: 22px;
-  font-weight: 800;
-}
-.card-tags {
+
+.pool-tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
+  margin: 10px 0;
 }
-.tag {
+
+.pool-tags span {
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: var(--mobile-muted);
+  padding: 5px 9px;
   font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  color: #64748b;
+  font-weight: 750;
 }
-.tag.time {
-  background: #fff7ed;
-  color: #ea580c;
-}
-.card-note {
-  font-size: 13px;
-  color: #94a3b8;
+
+.pool-card p {
+  margin: 0 0 13px;
+  border-radius: 14px;
   background: #f8fafc;
-  padding: 10px 12px;
-  border-radius: 10px;
-  margin-bottom: 14px;
-  line-height: 1.5;
-}
-.note-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  margin-right: 6px;
-}
-.claim-btn {
-  height: 44px !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 6px 20px rgba(99,102,241,0.25) !important;
-}
-
-/* 空状态 */
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 80px;
-}
-.empty-art {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  background: #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-.empty-emoji {
-  font-size: 40px;
-}
-.empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #64748b;
-}
-.empty-desc {
+  color: var(--mobile-muted);
+  padding: 10px;
   font-size: 13px;
-  color: #94a3b8;
-  margin-top: 4px;
-}
-
-.tabbar {
-  background: rgba(255,255,255,0.9) !important;
-  backdrop-filter: blur(20px) !important;
-  border-top: 1px solid #f1f5f9 !important;
+  line-height: 1.55;
 }
 </style>

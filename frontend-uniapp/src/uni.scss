@@ -1,0 +1,255 @@
+/* ===== Delta Esports 设计系统 — 迁移自 style.css ===== */
+
+/* 颜色变量 */
+$uni-color-primary: #2c704d;
+$uni-color-success: #12b76a;
+$uni-color-warning: #f79009;
+$uni-color-error: #f04438;
+
+/* 文字颜色 */
+$uni-text-color: #101828;
+$uni-text-color-inverse: #fff;
+$uni-text-color-grey: #667085;
+$uni-text-color-placeholder: #98a2b3;
+$uni-text-color-disable: #c0c0c0;
+
+/* 背景颜色 */
+$uni-bg-color: #ffffff;
+$uni-bg-color-grey: #f3f6f2;
+
+/* ===== 设计令牌 (CSS Custom Properties) ===== */
+page {
+  --mobile-bg: #f3f6f2;
+  --mobile-surface: #ffffff;
+  --mobile-surface-soft: #f7f9f5;
+  --mobile-text: #101828;
+  --mobile-muted: #667085;
+  --mobile-faint: #98a2b3;
+  --mobile-line: #e4e7ec;
+  --mobile-brand: #2c704d;
+  --mobile-brand-2: #65a878;
+  --mobile-ink: #173e2a;
+  --mobile-success: #12b76a;
+  --mobile-warning: #f79009;
+  --mobile-danger: #f04438;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  font-family: var(--font-family);
+  background: var(--mobile-bg);
+  color: var(--mobile-text);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+}
+
+/* ===== 全局工具类 ===== */
+.mobile-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% -4%, rgba(101, 168, 120, .12), transparent 28%),
+    radial-gradient(circle at 96% 10%, rgba(223, 155, 73, .10), transparent 24%),
+    linear-gradient(180deg, #f7faf6 0%, #eef3ec 100%);
+  padding: 14px 14px 24px;
+}
+
+.mobile-hero {
+  border-radius: 22px;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+  padding: 22px 18px;
+  background: linear-gradient(135deg, #dfeee2, #fff2d7);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 18px 42px rgba(16, 24, 40, .18);
+}
+
+.eyebrow {
+  color: rgba(255, 255, 255, .72);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.18;
+  font-weight: 900;
+}
+
+.page-subtitle {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, .74);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.section-title {
+  margin: 20px 2px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--mobile-ink);
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.section-note {
+  color: var(--mobile-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mobile-card {
+  background: rgba(255, 255, 255, .88);
+  border: 1px solid rgba(228, 231, 236, .9);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, .06);
+}
+
+.pill-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 8px;
+}
+
+.pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--mobile-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .78);
+  color: var(--mobile-muted);
+  padding: 9px 13px;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.pill.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--mobile-brand), var(--mobile-brand-2));
+  box-shadow: 0 8px 18px rgba(44, 112, 77, .18);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric {
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .14);
+  padding: 11px 8px;
+  text-align: center;
+}
+
+.metric strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.metric span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, .68);
+  font-size: 11px;
+}
+
+.empty-state {
+  min-height: 46vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--mobile-muted);
+}
+
+.empty-state h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  color: var(--mobile-ink);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* ===== 通用按钮 ===== */
+.btn-primary {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 14px;
+  background: linear-gradient(135deg, #2c704d, #65a878);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.btn-primary:active {
+  opacity: .85;
+}
+
+.btn-primary[disabled] {
+  opacity: .5;
+}
+
+/* ===== 底部弹出层 (替代 van-action-sheet) ===== */
+.action-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.action-sheet-panel {
+  width: 100%;
+  max-height: 75vh;
+  background: #f8fafc;
+  border-radius: 22px 22px 0 0;
+  padding: 0 0 24px;
+  overflow-y: auto;
+}
+
+.action-sheet-header {
+  padding: 18px 16px 14px;
+  font-size: 17px;
+  font-weight: 850;
+  text-align: center;
+  color: var(--mobile-ink);
+}
+
+/* ===== 加载动画 ===== */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(49, 87, 255, .16);
+  border-top-color: var(--mobile-brand);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== 星级评分 ===== */
+.star-row {
+  display: flex;
+  gap: 4px;
+}
+
+.star {
+  font-size: 22px;
+  color: #e4e7ec;
+}
+
+.star.active {
+  color: #f79009;
+}

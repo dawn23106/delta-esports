@@ -47,4 +47,10 @@ public class AuthController {
         if (userId == null) return Result.error(401, "未登录");
         return Result.success(userService.findById(userId));
     }
+
+    @Operation(summary = "微信小程序登录")
+    @PostMapping("/wx-login")
+    public Result<LoginResponse> wxLogin(@RequestParam String code) {
+        return Result.success(userService.wxLogin(code));
+    }
 }

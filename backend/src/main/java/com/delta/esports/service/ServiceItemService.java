@@ -26,6 +26,11 @@ public class ServiceItemService {
         return serviceItemMapper.selectList(qw);
     }
 
+    public List<ServiceItem> findAllForAdmin() {
+        return serviceItemMapper.selectList(new LambdaQueryWrapper<ServiceItem>()
+                .orderByAsc(ServiceItem::getSortOrder));
+    }
+
     public ServiceItem findById(Long id) {
         return serviceItemMapper.selectById(id);
     }

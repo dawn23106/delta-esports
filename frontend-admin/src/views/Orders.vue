@@ -10,15 +10,17 @@ const statusFilter = ref('')
 const loading = ref(false)
 
 const statusOptions = [
-  { label: '全部', value: '' }, { label: '待接单', value: 'pending' },
-  { label: '进行中', value: 'in_progress' }, { label: '待审核', value: 'completed' },
+  { label: '全部', value: '' }, { label: '待支付', value: 'pending_payment' },
+  { label: '待接单', value: 'pending' },
+  { label: '进行中', value: 'in_progress' }, { label: '待审核', value: 'submitted' },
   { label: '已确认', value: 'done' }, { label: '已结算', value: 'settled' },
+  { label: '退款中', value: 'refund_pending' },
   { label: '已取消', value: 'cancelled' }, { label: '争议中', value: 'disputed' }
 ]
 
 function statusLabel(s: string) {
-  const m: Record<string, string> = { pending: '待接单', assigned: '已接单', in_progress: '进行中',
-    completed: '待审核', done: '已确认', settled: '已结算', cancelled: '已取消', disputed: '争议中' }
+  const m: Record<string, string> = { pending_payment: '待支付', pending: '待接单', assigned: '已接单', in_progress: '进行中',
+    submitted: '待审核', done: '已确认', settled: '已结算', refund_pending: '退款中', cancelled: '已取消', disputed: '争议中' }
   return m[s] || s
 }
 
@@ -41,7 +43,7 @@ async function assignOrder(orderId: number) {
 async function confirmOrder(orderId: number) {
   try {
     await ElMessageBox.confirm('确认该订单达标？', '确认', { type: 'warning' })
-    await request.post(`/admin/orders/${orderId}/confirm`)
+    await request.post(`/admin/orders/${orderId}/force-done`)
     ElMessage.success('已确认'); load()
   } catch { }
 }
@@ -81,7 +83,7 @@ onMounted(load)
       <el-table-column label="操作" width="260">
         <template #default="{ row }">
           <el-button v-if="row.status === 'pending'" size="small" type="primary" @click="assignOrder(row.id)">派单</el-button>
-          <el-button v-if="row.status === 'completed'" size="small" type="success" @click="confirmOrder(row.id)">确认达标</el-button>
+          <el-button v-if="row.status === 'submitted'" size="small" type="success" @click="confirmOrder(row.id)">确认达标</el-button>
           <el-button v-if="row.status === 'done'" size="small" type="warning" @click="disputeOrder(row.id)">标记争议</el-button>
         </template>
       </el-table-column>

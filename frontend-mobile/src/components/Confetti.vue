@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 
 const props = withDefaults(defineProps<{
   particleCount?: number
@@ -19,12 +19,6 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 let particles: any[] = []
 let animId = 0
 let running = false
-
-interface Particle {
-  x: number; y: number; vx: number; vy: number; size: number
-  color: string; life: number; maxLife: number; rotation: number; rotSpeed: number
-  shape: 'rect' | 'circle'
-}
 
 function fire() {
   if (!canvasRef.value) return

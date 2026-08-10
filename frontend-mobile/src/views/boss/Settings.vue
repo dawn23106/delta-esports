@@ -13,6 +13,8 @@ const oldPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
 const changingPwd = ref(false)
+const orderNotify = ref(true)
+const systemNotify = ref(true)
 
 async function changePassword() {
   if (!oldPassword.value || !newPassword.value || !confirmPassword.value) {
@@ -31,9 +33,9 @@ async function changePassword() {
   try {
     await request.put('/users/me/password', {
       oldPassword: oldPassword.value,
-      newPassword: newPassword.value
+      newPassword: newPassword.value,
     })
-    showToast('密码修改成功')
+    showToast({ message: '密码修改成功', icon: 'success' })
     showPwdDialog.value = false
     oldPassword.value = ''
     newPassword.value = ''
@@ -50,7 +52,7 @@ async function handleLogout() {
     await showDialog({
       title: '退出登录',
       message: '确定要退出当前账号吗？',
-      confirmButtonColor: '#ef4444',
+      confirmButtonColor: '#f04438',
     })
     auth.logout()
     router.push('/login')
@@ -59,68 +61,70 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="page">
-    <van-nav-bar title="设置" left-arrow @click-left="$router.back()" fixed placeholder />
+  <main class="mobile-page no-tabbar">
+    <van-nav-bar title="设置" left-arrow @click-left="$router.back()" />
 
-    <div class="content">
-      <!-- 账号安全 -->
-      <div class="section">
-        <div class="section-title">账号安全</div>
-        <van-cell-group inset>
-          <van-cell title="修改密码" is-link @click="showPwdDialog = true">
-            <template #icon><span class="cell-icon">🔒</span></template>
-          </van-cell>
-          <van-cell title="绑定手机" :value="auth.userId ? '已绑定' : '未绑定'" />
-        </van-cell-group>
+    <div class="section-title">账号安全</div>
+    <section class="mobile-card setting-group">
+      <button type="button" class="setting-row" @click="showPwdDialog = true">
+        <van-icon name="lock" class="setting-icon" />
+        <span class="setting-label">修改密码</span>
+        <van-icon name="arrow" class="setting-arrow" />
+      </button>
+      <div class="setting-row">
+        <van-icon name="phone" class="setting-icon" />
+        <span class="setting-label">绑定手机</span>
+        <span class="setting-value">{{ auth.userId ? '已绑定' : '未绑定' }}</span>
       </div>
+    </section>
 
-      <!-- 通知设置 -->
-      <div class="section">
-        <div class="section-title">通知设置</div>
-        <van-cell-group inset>
-          <van-cell title="订单消息通知" center>
-            <template #icon><span class="cell-icon">🔔</span></template>
-            <template #right-icon><van-switch :model-value="true" active-color="#6366f1" size="22px" /></template>
-          </van-cell>
-          <van-cell title="系统公告通知" center>
-            <template #icon><span class="cell-icon">📢</span></template>
-            <template #right-icon><van-switch :model-value="true" active-color="#6366f1" size="22px" /></template>
-          </van-cell>
-        </van-cell-group>
+    <div class="section-title">通知设置</div>
+    <section class="mobile-card setting-group">
+      <div class="setting-row">
+        <van-icon name="bell" class="setting-icon" />
+        <span class="setting-label">订单消息通知</span>
+        <van-switch v-model="orderNotify" active-color="#3157ff" size="22px" />
       </div>
-
-      <!-- 其他 -->
-      <div class="section">
-        <div class="section-title">其他</div>
-        <van-cell-group inset>
-          <van-cell title="关于沧月电竞" is-link value="v1.0.0">
-            <template #icon><span class="cell-icon">📱</span></template>
-          </van-cell>
-          <van-cell title="用户协议" is-link>
-            <template #icon><span class="cell-icon">📄</span></template>
-          </van-cell>
-          <van-cell title="隐私政策" is-link>
-            <template #icon><span class="cell-icon">🛡️</span></template>
-          </van-cell>
-          <van-cell title="清理缓存" is-link @click="showToast('缓存已清理')">
-            <template #icon><span class="cell-icon">🗑️</span></template>
-          </van-cell>
-        </van-cell-group>
+      <div class="setting-row last">
+        <van-icon name="volume" class="setting-icon" />
+        <span class="setting-label">系统公告通知</span>
+        <van-switch v-model="systemNotify" active-color="#3157ff" size="22px" />
       </div>
+    </section>
 
-      <!-- 退出 -->
-      <div class="logout-section">
-        <van-button round block type="danger" plain @click="handleLogout">退出登录</van-button>
-      </div>
-    </div>
+    <div class="section-title">其他</div>
+    <section class="mobile-card setting-group">
+      <button type="button" class="setting-row">
+        <van-icon name="info-o" class="setting-icon" />
+        <span class="setting-label">关于沧月电竞</span>
+        <span class="setting-value">v1.0.0</span>
+        <van-icon name="arrow" class="setting-arrow" />
+      </button>
+      <button type="button" class="setting-row">
+        <van-icon name="description" class="setting-icon" />
+        <span class="setting-label">用户协议</span>
+        <van-icon name="arrow" class="setting-arrow" />
+      </button>
+      <button type="button" class="setting-row">
+        <van-icon name="shield-o" class="setting-icon" />
+        <span class="setting-label">隐私政策</span>
+        <van-icon name="arrow" class="setting-arrow" />
+      </button>
+      <button type="button" class="setting-row last" @click="showToast({ message: '缓存已清理', icon: 'success' })">
+        <van-icon name="delete-o" class="setting-icon" />
+        <span class="setting-label">清理缓存</span>
+        <van-icon name="arrow" class="setting-arrow" />
+      </button>
+    </section>
 
-    <!-- 修改密码弹窗 -->
+    <button type="button" class="logout-btn" @click="handleLogout">退出登录</button>
+
     <van-dialog
       v-model:show="showPwdDialog"
       title="修改密码"
       show-cancel-button
       :confirm-button-text="changingPwd ? '修改中...' : '确认修改'"
-      :confirm-button-color="'#6366f1'"
+      confirm-button-color="#3157ff"
       :before-close="(action: string) => {
         if (action === 'confirm') { changePassword(); return false }
         return true
@@ -132,34 +136,71 @@ async function handleLogout() {
         <van-field v-model="confirmPassword" type="password" label="确认密码" placeholder="再次输入新密码" />
       </div>
     </van-dialog>
-  </div>
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f8fafc;
+.setting-group {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 6px;
 }
 
-.content {
-  padding-bottom: 40px;
+.setting-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--mobile-line);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  color: var(--mobile-ink);
+  font-size: 14px;
+  font-weight: 650;
 }
-.section {
-  margin-top: 16px;
+
+.setting-row:last-child,
+.setting-row.last {
+  border-bottom: 0;
 }
-.section-title {
+
+.setting-icon {
+  color: var(--mobile-brand);
+  font-size: 20px;
+  flex: 0 0 auto;
+}
+
+.setting-label {
+  flex: 1;
+  text-align: left;
+  color: var(--mobile-ink);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.setting-value {
+  color: var(--mobile-faint);
   font-size: 13px;
-  color: #94a3b8;
   font-weight: 500;
-  padding: 0 20px 8px;
-}
-.cell-icon {
-  font-size: 18px;
-  margin-right: 4px;
 }
 
-.logout-section {
-  padding: 32px 20px;
+.setting-arrow {
+  color: var(--mobile-faint);
+  font-size: 14px;
+  flex: 0 0 auto;
+}
+
+.logout-btn {
+  width: 100%;
+  margin-top: 22px;
+  border: 1px solid rgba(240, 68, 56, .24);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .9);
+  color: var(--mobile-danger);
+  font-size: 15px;
+  font-weight: 800;
+  padding: 14px;
 }
 
 .pwd-form {

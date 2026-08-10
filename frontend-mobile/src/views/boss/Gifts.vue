@@ -12,15 +12,79 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <van-nav-bar title="我的礼物" left-arrow @click-left="$router.back()" fixed placeholder />
-    <div class="px-4 mt-3 space-y-2">
-      <div v-for="g in gifts" :key="g.id" class="bg-white rounded-xl shadow-sm p-4">
-        <div class="flex justify-between"><span class="font-medium">{{ g.giftName }}</span><span class="text-amber-500 font-bold">¥{{ g.amount }}</span></div>
-        <div class="text-xs text-gray-400 mt-1">{{ g.message || '无留言' }}</div>
-        <div class="text-xs text-gray-300 mt-1">{{ g.createdAt?.replace('T', ' ').substring(0, 16) }}</div>
+  <main class="mobile-page no-tabbar">
+    <van-nav-bar title="我的礼物" left-arrow @click-left="$router.back()" />
+
+    <template v-if="gifts.length">
+      <div class="gift-list">
+        <article v-for="g in gifts" :key="g.id" class="gift-card">
+          <div class="gift-head">
+            <span class="gift-name">{{ g.giftName }}</span>
+            <strong class="gift-amount">¥{{ g.amount }}</strong>
+          </div>
+          <p v-if="g.message" class="gift-msg">{{ g.message }}</p>
+          <p v-else class="gift-msg muted">无留言</p>
+          <time class="gift-time">{{ g.createdAt?.replace('T', ' ').substring(0, 16) }}</time>
+        </article>
       </div>
-      <div v-if="gifts.length === 0" class="text-center py-20 text-gray-400">暂无送礼记录</div>
+    </template>
+
+    <div v-else class="empty-state">
+      <div>
+        <h3>暂无礼物</h3>
+        <p>收到礼物后会在这里显示。</p>
+      </div>
     </div>
-  </div>
+  </main>
 </template>
+
+<style scoped>
+.gift-list {
+  display: grid;
+  gap: 10px;
+}
+
+.gift-card {
+  border: 1px solid rgba(228, 231, 236, .95);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .92);
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, .05);
+}
+
+.gift-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.gift-name {
+  color: var(--mobile-ink);
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.gift-amount {
+  color: var(--mobile-warning);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.gift-msg {
+  margin: 8px 0 6px;
+  color: var(--mobile-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.gift-msg.muted {
+  opacity: .55;
+}
+
+.gift-time {
+  color: var(--mobile-faint);
+  font-size: 11px;
+  font-weight: 500;
+}
+</style>

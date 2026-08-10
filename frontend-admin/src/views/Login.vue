@@ -5,8 +5,8 @@ import request from '../api/request'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const phone = ref('13800000001')
-const password = ref('123456')
+const phone = ref('')
+const password = ref('')
 const loading = ref(false)
 
 async function handleLogin() {

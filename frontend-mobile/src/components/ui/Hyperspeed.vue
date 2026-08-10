@@ -22,8 +22,6 @@ function init() {
   const c = canvasRef.value
   c.width = window.innerWidth
   c.height = window.innerHeight
-  const cx = c.width / 2
-  const cy = c.height / 2
   stars = Array.from({ length: 200 }, () => ({
     x: (Math.random() - 0.5) * c.width * 1.5,
     y: (Math.random() - 0.5) * c.height * 1.5,

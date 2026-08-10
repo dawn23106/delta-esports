@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { getServices } from '../../api/services'
+import { computed, onMounted, ref } from 'vue'
+import { closeToast, showLoadingToast, showToast } from 'vant'
 import { createOrder } from '../../api/orders'
-import { showToast, showLoadingToast, closeToast } from 'vant'
+import { getServices } from '../../api/services'
 import { useAuthGuard } from '../../composables/useAuthGuard'
-import Confetti from '../../components/Confetti.vue'
-import AuroraBackground from '../../components/AuroraBackground.vue'
-import ImagesSlider from '../../components/ImagesSlider.vue'
-import GradientButton from '../../components/ui/GradientButton.vue'
+import MobileTabbar from '../../components/MobileTabbar.vue'
 
 const services = ref<any[]>([])
-const active = ref(0)
 const loading = ref(false)
 const showOrder = ref(false)
 const selectedService = ref<any>(null)
@@ -22,70 +18,67 @@ const showMapPicker = ref(false)
 const showCategoryPicker = ref(false)
 const showModePicker = ref(false)
 const { requireLogin } = useAuthGuard()
-const confettiRef = ref<InstanceType<typeof Confetti> | null>(null)
-
-const sliderImages = [
-  'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=1200&h=600&fit=crop',
-  'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1200&h=600&fit=crop',
-]
 
 const mapList = ['零号大坝', '巴克什', '航天基地', '潮汐监狱', '长弓溪谷']
-
 const mapModes: Record<string, Record<string, string[]>> = {
-  '危险行动': { '零号大坝': ['机密','绝密'], '长弓溪谷': ['机密','绝密'], '巴克什': ['机密','绝密'], '航天基地': ['机密','绝密'], '潮汐监狱': ['机密','绝密'] },
-  '黑夜行动': { '零号大坝': ['永夜'] },
-  '赤枭寻猎': { '零号大坝': ['机密'], '巴克什': ['机密','绝密'], '航天基地': ['机密','绝密'] },
+  危险行动: {
+    零号大坝: ['机密', '绝密'],
+    长弓溪谷: ['机密', '绝密'],
+    巴克什: ['机密', '绝密'],
+    航天基地: ['机密', '绝密'],
+    潮汐监狱: ['机密', '绝密'],
+  },
+  黑夜行动: { 零号大坝: ['永夜'] },
+
 }
 
+const categoryMeta: Record<string, { tone: string; desc: string }> = {
+  老板护航: { tone: '护航撤离', desc: '适合稳妥下单，打手全程带节奏。' },
+  陪玩专区: { tone: '轻松开黑', desc: '按小时计费，适合娱乐陪玩。' },
+  监狱专区: { tone: '高强度局', desc: '热门地图与高收益玩法。' },
+  趣味玩法: { tone: '指定玩法', desc: '指定掉落、体验局和特殊目标。' },
+  特殊玩法: { tone: '定制规则', desc: '下单前可在备注说明细节。' },
+}
+
+const grouped = computed(() => {
+  const buckets = new Map<string, any[]>()
+  for (const service of services.value) {
+    const category = service.category || '推荐服务'
+    buckets.set(category, [...(buckets.get(category) || []), service])
+  }
+  return [...buckets.entries()].map(([name, items]) => ({ name, items }))
+})
+
 const availableCategories = computed(() => {
-  if (!gameMap.value) return [] as string[]
-  return Object.keys(mapModes).filter(c => mapModes[c][gameMap.value])
+  if (!gameMap.value) return []
+  return Object.keys(mapModes).filter((category) => mapModes[category][gameMap.value])
 })
 
 const availableModes = computed(() => {
-  if (!gameMap.value || !modeCategory.value) return [] as string[]
+  if (!gameMap.value || !modeCategory.value) return []
   return mapModes[modeCategory.value]?.[gameMap.value] || []
-})
-
-const catIcons: Record<string, string> = {
-  '老板护航': '🛡️', '陪玩专区': '🎯', '监狱专区': '🔥', '趣味玩法': '🎪', '特殊玩法': '⚡',
-}
-
-const subtitles: Record<string, string> = {
-  '老板护航': '带老板撤离 · 保底收益',
-  '陪玩专区': '按小时计费',
-  '监狱专区': '炸单加保底',
-  '趣味玩法': '指定掉落 · 不出退全款',
-  '特殊玩法': '特色玩法 · 规则见详情',
-}
-
-// 分组：category → subcategory → items
-const grouped = computed(() => {
-  const cats: Record<string, { icon: string; subcats: Record<string, any[]> }> = {}
-  for (const s of services.value) {
-    const cat = s.category
-    if (!cats[cat]) cats[cat] = { icon: catIcons[cat] || '📋', subcats: {} }
-    const parts = s.name.split('·')
-    const sub = parts.length > 1 ? parts[0].trim() : '其他'
-    if (!cats[cat].subcats[sub]) cats[cat].subcats[sub] = []
-    cats[cat].subcats[sub].push(s)
-  }
-  return Object.entries(cats).map(([name, data]) => ({
-    name, icon: data.icon,
-    groups: Object.entries(data.subcats).map(([sub, items]) => ({ sub, items })),
-  }))
 })
 
 async function load() {
   loading.value = true
-  try { const r: any = await getServices(); services.value = Array.isArray(r) ? r : [] } catch { }
-  loading.value = false
+  try {
+    const result: any = await getServices()
+    services.value = Array.isArray(result) ? result : []
+  } finally {
+    loading.value = false
+  }
 }
 
-function pick(s: any) {
-  selectedService.value = s
+function cleanName(name: string) {
+  return name?.split('·').pop()?.trim() || name
+}
+
+function priceUnit(unit: string) {
+  return unit === 'hour' ? '小时' : '局'
+}
+
+function pick(service: any) {
+  selectedService.value = service
   showOrder.value = true
   gameMap.value = ''
   modeCategory.value = ''
@@ -93,271 +86,331 @@ function pick(s: any) {
   bossNote.value = ''
 }
 
-function onMapChange(m: string) {
-  gameMap.value = m
+function onMapChange(map: string) {
+  gameMap.value = map
   modeCategory.value = ''
   gameMode.value = ''
   showMapPicker.value = false
 }
 
 async function submit() {
+  if (!selectedService.value) return
   if (!await requireLogin('下单')) return
   const mapWithMode = [gameMap.value, modeCategory.value, gameMode.value].filter(Boolean).join(' · ')
-  showLoadingToast({ message: '下单中...', duration: 0 })
+  showLoadingToast({ message: '正在提交订单', duration: 0 })
   try {
-    await createOrder({ serviceId: selectedService.value.id, gameMap: mapWithMode || undefined, bossNote: bossNote.value || undefined })
-    closeToast(); showToast({ message: '下单成功！', icon: 'success' }); showOrder.value = false
-    confettiRef.value?.fire()
-  } catch (e: any) { closeToast(); showToast({ message: e?.response?.data?.message || '失败', icon: 'fail' }) }
-}
-
-// 统一大卡宽度
-function cardW(_i: number) { return '210px' }
-
-function placeholderImg(id: number) {
-  const imgs = [
-    'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1612404730960-5c71577fca11?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1592155931584-901ac15763e3?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1552820728-8b83bb6b2cf3?w=400&h=400&fit=crop',
-  ]
-  return imgs[id % imgs.length]
-}
-
-// 横向滚动时阻止纵向
-function onWheel(e: WheelEvent) {
-  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); window.scrollBy({ top: e.deltaY }) }
+    await createOrder({
+      serviceId: selectedService.value.id,
+      gameMap: mapWithMode || undefined,
+      bossNote: bossNote.value || undefined,
+    })
+    closeToast()
+    showToast({ message: '下单成功', icon: 'success' })
+    showOrder.value = false
+  } catch (error: any) {
+    closeToast()
+    showToast({ message: error?.response?.data?.message || '下单失败', icon: 'fail' })
+  }
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <AuroraBackground>
-    <Confetti ref="confettiRef" />
-
-    <!-- 品牌区 -->
-    <section class="hero">
-      <ImagesSlider :images="sliderImages" autoplay :interval="4000">
-        <div class="hero-overlay">
-          <h1 class="hero-title">沧月电竞</h1>
-          <div class="hero-stats">
-            <span>🎯 {{ services.length }}个服务</span>
-            <span>⚡ 3位陪陪在线</span>
-            <span>⭐ 98.6%好评</span>
-          </div>
-        </div>
-      </ImagesSlider>
+  <main class="mobile-page">
+    <section
+      class="mobile-hero hero"
+      style="--hero-image: url('https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1000&h=900&fit=crop')"
+    >
+      <div class="eyebrow">Delta Esports</div>
+      <h1 class="page-title">沧月电竞</h1>
+      <p class="page-subtitle">快速匹配靠谱陪玩，地图、模式、备注一次说清。</p>
+      <div class="metric-grid hero-metrics">
+        <div class="metric"><strong>{{ services.length }}</strong><span>服务</span></div>
+        <div class="metric"><strong>5 min</strong><span>平均响应</span></div>
+        <div class="metric"><strong>98%</strong><span>好评率</span></div>
+      </div>
     </section>
 
-    <div v-if="loading" class="loading-wrap"><van-loading size="28" color="#6366f1" /></div>
+    <div class="section-title">
+      <span>热门服务</span>
+      <span class="section-note">点击卡片下单</span>
+    </div>
 
-    <!-- 服务列表 -->
-    <template v-else-if="services.length">
-      <section v-for="cat in grouped" :key="cat.name" class="cat-section">
-        <!-- 分类头 -->
-        <div class="cat-header">
-          <span class="cat-icon">{{ cat.icon }}</span>
+    <div v-if="loading" class="loading-card mobile-card">
+      <van-loading color="#3157ff" />
+      <span>正在加载服务</span>
+    </div>
+
+    <template v-else-if="grouped.length">
+      <section v-for="group in grouped" :key="group.name" class="service-block">
+        <div class="service-head">
           <div>
-            <h2 class="cat-title">{{ cat.name }}</h2>
-            <p class="cat-subtitle">{{ subtitles[cat.name] || '' }}</p>
+            <h2>{{ group.name }}</h2>
+            <p>{{ categoryMeta[group.name]?.desc || '精选高频服务，按需选择即可。' }}</p>
           </div>
+          <span>{{ categoryMeta[group.name]?.tone || '推荐' }}</span>
         </div>
 
-        <!-- 子分类组 -->
-        <div v-for="grp in cat.groups" :key="grp.sub" class="sub-group">
-          <div class="sub-label">{{ grp.sub }}</div>
-          <div class="h-scroll" @wheel="onWheel">
-            <div class="h-scroll-row">
-              <div
-                v-for="(s, j) in grp.items" :key="s.id"
-                class="svc-card"
-                :style="{ width: cardW(j) }"
-                @click="pick(s)"
-              >
-                <div class="svc-img-wrap">
-                  <img :src="placeholderImg(s.id)" class="svc-img" />
-                  <span class="svc-tag">{{ s.priceUnit === 'hour' ? '时' : '局' }}</span>
-                </div>
-                <div class="svc-body">
-                  <h3 class="svc-name">{{ s.name.split('·').slice(1).join('·').trim() || s.name }}</h3>
-                  <div class="svc-footer">¥{{ s.basePrice }}</div>
-                  <div class="svc-desc" v-if="s.guaranteeDesc">{{ s.guaranteeDesc }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="service-grid">
+          <button v-for="service in group.items" :key="service.id" class="service-card" type="button" @click="pick(service)">
+            <span class="service-name">{{ cleanName(service.name) }}</span>
+            <span v-if="service.guaranteeDesc" class="service-desc">{{ service.guaranteeDesc }}</span>
+            <span class="service-price">￥{{ service.basePrice }} <small>/ {{ priceUnit(service.priceUnit) }}</small></span>
+          </button>
         </div>
       </section>
 
-      <!-- 重要规则 -->
-      <section class="rules-section">
-        <div class="rules-header">
-          <span>📋</span>
-          <h3>重要规则</h3>
-        </div>
-        <div class="rules-list">
-          <div class="rule-item">护航期间听打手指挥，否则炸单不补偿</div>
-          <div class="rule-item">老板撤离失败即炸单，机密加保底20万，绝密加50万</div>
-          <div class="rule-item">连续失败3把可免费换陪陪</div>
-          <div class="rule-item">打手辱骂或私藏物品，减20%费用并换人</div>
-          <div class="rule-item">老板故意挂机或乱丢物品可直接结单</div>
-          <div class="rule-item">所有护航默认双护</div>
-          <div class="rule-item rule-muted">最终解释权归沧月电竞</div>
-        </div>
+      <section class="rules mobile-card">
+        <div class="rules-title">下单须知</div>
+        <p>护航期间请听从陪玩指挥；连续失败可沟通更换陪玩；特殊掉落、打法和时间要求请写在备注里。</p>
       </section>
     </template>
 
-    <div v-else class="empty">暂无服务</div>
-    <div style="height:80px" />
+    <div v-else class="empty-state">
+      <div>
+        <h3>暂无服务</h3>
+        <p>稍后再来看看，服务列表会自动同步后台。</p>
+      </div>
+    </div>
 
-    <!-- ==================== 下单弹窗 ==================== -->
-    <van-action-sheet v-model:show="showOrder" title="确认下单" :close-on-click-overlay="true" :style="{ borderRadius:'20px 20px 0 0' }">
-      <div class="sheet" v-if="selectedService">
-        <div class="sheet-card">
-          <div class="sheet-name">{{ selectedService.name }}</div>
-          <div class="sheet-detail">
-            <span class="sheet-price">¥{{ selectedService.basePrice }}</span>
-            <span>/{{ selectedService.priceUnit === 'hour' ? '小时' : '局' }}</span>
+    <van-action-sheet v-model:show="showOrder" title="确认下单" round>
+      <div v-if="selectedService" class="sheet">
+        <div class="sheet-summary">
+          <div>
+            <span class="sheet-kicker">已选服务</span>
+            <h3>{{ selectedService.name }}</h3>
           </div>
-          <div class="sheet-guarantee" v-if="selectedService.guaranteeDesc">{{ selectedService.guaranteeDesc }}</div>
+          <strong>￥{{ selectedService.basePrice }}</strong>
         </div>
 
-        <!-- 地图 -->
-        <van-field v-model="gameMap" label="📍 地图" placeholder="请选择地图" :border="true" input-align="right" readonly is-link @click="showMapPicker = true" />
-        <!-- 模式分类（选了地图后出现） -->
-        <van-field v-if="gameMap" v-model="modeCategory" label="🏷 分类" placeholder="请选择行动类型" :border="true" input-align="right" readonly is-link @click="showCategoryPicker = true" />
-        <!-- 模式（选了分类后出现） -->
-        <van-field v-if="modeCategory && availableModes.length" v-model="gameMode" label="🎯 模式" placeholder="请选择模式" :border="true" input-align="right" readonly is-link @click="showModePicker = true" />
-        <!-- 备注 -->
-        <van-field v-model="bossNote" label="📝 备注" placeholder="有什么要求（选填）" type="textarea" rows="2" maxlength="200" show-word-limit :border="true" />
+        <van-field v-model="gameMap" label="地图" placeholder="选择地图" readonly is-link @click="showMapPicker = true" />
+        <van-field v-if="gameMap" v-model="modeCategory" label="玩法" placeholder="选择行动类型" readonly is-link @click="showCategoryPicker = true" />
+        <van-field v-if="modeCategory && availableModes.length" v-model="gameMode" label="模式" placeholder="选择模式" readonly is-link @click="showModePicker = true" />
+        <van-field v-model="bossNote" label="备注" placeholder="补充时间、打法或特殊要求" type="textarea" rows="3" maxlength="200" show-word-limit />
 
-        <div class="sheet-tip">⏱️ 预计 5 分钟内匹配空闲陪陪</div>
-        <GradientButton @click="submit" color-from="#6366f1" color-to="#8b5cf6">确认下单</GradientButton>
+        <van-button block round type="primary" size="large" color="linear-gradient(135deg, #3157ff, #08b6d8)" @click="submit">
+          确认下单
+        </van-button>
       </div>
     </van-action-sheet>
 
-    <!-- 地图选择器 -->
-    <van-action-sheet v-model:show="showMapPicker" title="选择地图" :close-on-click-overlay="true" :style="{ borderRadius:'20px 20px 0 0' }">
+    <van-action-sheet v-model:show="showMapPicker" title="选择地图" round>
       <div class="picker-list">
-        <div v-for="m in mapList" :key="m" class="picker-item" :class="{ selected: gameMap === m }" @click="onMapChange(m)">
-          <span>{{ m }}</span>
-          <span v-if="gameMap === m" class="picker-check">✓</span>
-        </div>
+        <button v-for="map in mapList" :key="map" type="button" class="picker-item" @click="onMapChange(map)">
+          <span>{{ map }}</span>
+          <van-icon v-if="gameMap === map" name="success" />
+        </button>
       </div>
     </van-action-sheet>
 
-    <!-- 分类选择器 -->
-    <van-action-sheet v-model:show="showCategoryPicker" title="选择行动类型" :close-on-click-overlay="true" :style="{ borderRadius:'20px 20px 0 0' }">
+    <van-action-sheet v-model:show="showCategoryPicker" title="选择行动类型" round>
       <div class="picker-list">
-        <div v-for="c in availableCategories" :key="c" class="picker-item" :class="{ selected: modeCategory === c }" @click="modeCategory = c; gameMode = ''; showCategoryPicker = false">
-          <span>{{ c }}</span>
-          <span v-if="modeCategory === c" class="picker-check">✓</span>
-        </div>
+        <button
+          v-for="category in availableCategories"
+          :key="category"
+          type="button"
+          class="picker-item"
+          @click="modeCategory = category; gameMode = ''; showCategoryPicker = false"
+        >
+          <span>{{ category }}</span>
+          <van-icon v-if="modeCategory === category" name="success" />
+        </button>
       </div>
     </van-action-sheet>
 
-    <!-- 模式选择器 -->
-    <van-action-sheet v-model:show="showModePicker" title="选择模式" :close-on-click-overlay="true" :style="{ borderRadius:'20px 20px 0 0' }">
+    <van-action-sheet v-model:show="showModePicker" title="选择模式" round>
       <div class="picker-list">
-        <div v-for="m in availableModes" :key="m" class="picker-item" :class="{ selected: gameMode === m }" @click="gameMode = m; showModePicker = false">
-          <span>{{ m }}</span>
-          <span v-if="gameMode === m" class="picker-check">✓</span>
-        </div>
+        <button v-for="mode in availableModes" :key="mode" type="button" class="picker-item" @click="gameMode = mode; showModePicker = false">
+          <span>{{ mode }}</span>
+          <van-icon v-if="gameMode === mode" name="success" />
+        </button>
       </div>
     </van-action-sheet>
 
-    <van-tabbar v-model="active" route :border="false" active-color="#6366f1" inactive-color="#94a3b8" safe-area-inset-bottom class="tabbar">
-      <van-tabbar-item icon="home-o" to="/boss/home">首页</van-tabbar-item>
-      <van-tabbar-item icon="friends-o" to="/boss/choose">选陪陪</van-tabbar-item>
-      <van-tabbar-item icon="chat-o" to="/boss/messages">消息</van-tabbar-item>
-      <van-tabbar-item icon="user-o" to="/boss/profile">我的</van-tabbar-item>
-    </van-tabbar>
-  </AuroraBackground>
+    <MobileTabbar role="boss" />
+  </main>
 </template>
 
 <style scoped>
-/* ========== 品牌区 ========== */
-.hero { margin: 12px 0 8px; padding: 0 12px; }
-.hero :deep(.slider-wrap) { border-radius: 12px; max-height: 180px; }
-.hero-overlay { padding: 16px 20px; color: #fff; }
-.hero-title { font-size: 22px; font-weight: 900; margin: 0 0 6px; letter-spacing: 2px; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
-.hero-stats { display: flex; gap: 14px; font-size: 11px; opacity: .8; }
-
-/* ========== 分类区块 ========== */
-.cat-section { padding: 8px 0 4px; }
-.cat-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; }
-.cat-icon { font-size: 26px; }
-.cat-title { font-size: 17px; font-weight: 700; color: #1e293b; margin: 0; }
-.cat-subtitle { font-size: 12px; color: #94a3b8; margin: 2px 0 0; }
-
-/* ========== 子分类 ========== */
-.sub-group { padding: 2px 0; }
-.sub-label {
-  font-size: 12px; font-weight: 600; color: #64748b;
-  padding: 8px 16px 4px;
+.hero {
+  min-height: 226px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
-/* ========== 横向滚动 ========== */
-.h-scroll { overflow-x: auto; padding: 8px 12px 0; }
-.h-scroll::-webkit-scrollbar { display: none; }
-.h-scroll-row { display: flex; flex-wrap: wrap; gap: 6px; width: max-content; max-height: 440px; }
-
-/* ========== 服务卡片 ========== */
-.svc-card {
-  background: rgba(255,255,255,.85); backdrop-filter: blur(8px);
-  border-radius: 18px; overflow: hidden; flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08); cursor: pointer;
-  display: flex; flex-direction: column; height: 200px;
-  transition: box-shadow .25s, transform .25s;
-  border: none; outline: none;
+.hero-metrics {
+  margin-top: 18px;
 }
-.svc-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.12); transform: translateY(-2px); }
-.svc-card:hover .svc-img { transform: scale(1.05); }
-.svc-card > * { min-height: 0; flex-shrink: 1; }
 
-.svc-img-wrap { flex: 1; overflow: hidden; position: relative; min-height: 0; }
-.svc-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
-.svc-tag { position: absolute; bottom: 6px; right: 6px; padding: 2px 8px; border-radius: 6px; background: rgba(0,0,0,.45); color: #fff; font-size: 10px; }
+.loading-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--mobile-muted);
+}
 
-.svc-body { padding: 6px 8px; flex-shrink: 0; text-align: center; }
-.svc-name { font-size: 12px; font-weight: 600; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
-.svc-footer { font-size: 13px; color: #6366f1; font-weight: 700; margin-top: 2px; }
-.svc-desc { font-size: 10px; color: #94a3b8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-block {
+  margin-top: 12px;
+}
 
-/* ========== 重要规则 ========== */
-.rules-section { margin: 16px 14px; background: rgba(255,255,255,.7); border-radius: 14px; padding: 14px 16px; border: 1px solid #f1f5f9; }
-.rules-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.rules-header h3 { font-size: 14px; font-weight: 700; color: #475569; margin: 0; }
-.rules-list { display: flex; flex-direction: column; gap: 6px; }
-.rule-item { font-size: 12px; color: #64748b; padding-left: 12px; position: relative; line-height: 1.5; }
-.rule-item::before { content: '•'; position: absolute; left: 0; color: #cbd5e1; }
-.rule-muted { color: #94a3b8; font-style: italic; }
+.service-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 0 2px 10px;
+}
 
-/* ========== 下单弹窗 ========== */
-.sheet { padding: 0 16px 28px; }
-.sheet-card { background: linear-gradient(135deg, #eef2ff, #faf5ff); border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 1px solid #e0e7ff; }
-.sheet-name { font-size: 16px; font-weight: 700; color: #1e293b; }
-.sheet-detail { margin-top: 6px; display: flex; align-items: baseline; gap: 4px; }
-.sheet-price { font-size: 28px; font-weight: 800; color: #6366f1; }
-.sheet-detail > span:last-child { font-size: 13px; color: #64748b; }
-.sheet-guarantee { margin-top: 8px; font-size: 12px; color: #92400e; background: #fffbeb; padding: 6px 10px; border-radius: 8px; line-height: 1.5; }
-.sheet-tip { margin: 12px 0 16px; padding: 10px; background: #fffbeb; border-radius: 10px; font-size: 12px; color: #92400e; }
+.service-head h2 {
+  margin: 0;
+  color: var(--mobile-ink);
+  font-size: 16px;
+}
 
-/* ========== 选择器 ========== */
-.picker-list { padding: 8px 16px 28px; }
+.service-head p {
+  margin: 3px 0 0;
+  color: var(--mobile-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.service-head span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #eaf0ff;
+  color: var(--mobile-brand);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.service-card {
+  min-height: 128px;
+  border: 1px solid rgba(228,231,236,.95);
+  border-radius: 18px;
+  padding: 14px;
+  text-align: left;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(16,24,40,.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.service-card:active {
+  transform: scale(.98);
+}
+
+.service-name {
+  color: var(--mobile-ink);
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.service-desc {
+  margin-top: 8px;
+  color: var(--mobile-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.service-price {
+  margin-top: 12px;
+  color: var(--mobile-brand);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.service-price small {
+  color: var(--mobile-faint);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.rules {
+  margin-top: 18px;
+}
+
+.rules-title {
+  margin-bottom: 6px;
+  color: var(--mobile-ink);
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.rules p {
+  margin: 0;
+  color: var(--mobile-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.sheet {
+  padding: 0 16px 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.sheet-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eef4ff, #edfdfa);
+  border: 1px solid #dbe7ff;
+}
+
+.sheet-kicker {
+  color: var(--mobile-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sheet-summary h3 {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.sheet-summary strong {
+  color: var(--mobile-brand);
+  font-size: 24px;
+}
+
+.picker-list {
+  padding: 0 16px 24px;
+}
+
 .picker-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 0; font-size: 15px; color: #334155;
-  border-bottom: 1px solid #f1f5f9; cursor: pointer;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--mobile-line);
+  background: transparent;
+  color: var(--mobile-ink);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 750;
 }
-.picker-item:last-child { border-bottom: none; }
-.picker-item:active { background: #f8fafc; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
-.picker-item.selected { color: #6366f1; font-weight: 600; }
-.picker-check { color: #6366f1; font-weight: 700; }
 
-/* ========== 通用 ========== */
-.loading-wrap { display: flex; justify-content: center; padding: 80px 0; }
-.empty { text-align: center; padding: 60px 0; color: #94a3b8; font-size: 13px; }
-.tabbar { background: rgba(255,255,255,.9) !important; backdrop-filter: blur(20px) !important; border-top: 1px solid #f1f5f9 !important; }
+.picker-item .van-icon {
+  color: var(--mobile-brand);
+}
 </style>

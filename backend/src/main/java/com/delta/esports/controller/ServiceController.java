@@ -2,6 +2,7 @@ package com.delta.esports.controller;
 
 import com.delta.esports.common.Result;
 import com.delta.esports.entity.ServiceItem;
+import com.delta.esports.config.RequireRole;
 import com.delta.esports.service.ServiceItemService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 
-@Tag(name = "服务项目", description = "陪玩代练服务项目接口")
+@Tag(name = "服务项目", description = "电竞陪玩与组队服务项目接口")
 @RestController
 @RequestMapping("/api/services")
 public class ServiceController {
@@ -33,6 +34,7 @@ public class ServiceController {
     }
 
     @Operation(summary = "创建服务项目")
+    @RequireRole("admin")
     @PostMapping
     public Result<?> create(@Valid @RequestBody ServiceItem item) {
         serviceItemService.create(item);
@@ -40,6 +42,7 @@ public class ServiceController {
     }
 
     @Operation(summary = "更新服务项目")
+    @RequireRole("admin")
     @PutMapping("/{id}")
     public Result<?> update(@PathVariable Long id, @Valid @RequestBody ServiceItem item) {
         item.setId(id);
@@ -48,6 +51,7 @@ public class ServiceController {
     }
 
     @Operation(summary = "上架/下架服务项目")
+    @RequireRole("admin")
     @PutMapping("/{id}/toggle")
     public Result<?> toggle(@PathVariable Long id, @RequestParam boolean active) {
         serviceItemService.toggleActive(id, active);

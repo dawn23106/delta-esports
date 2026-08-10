@@ -7,6 +7,7 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import java.math.BigDecimal;
 
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
  * 所有用户密码均为 123456
  */
 @Component
+@Profile("dev")
 public class DataInitializer implements CommandLineRunner {
 
     @Autowired private UserMapper userMapper;
@@ -73,6 +75,7 @@ public class DataInitializer implements CommandLineRunner {
         booster1.setNickname("影刃");
         booster1.setRole("booster");
         booster1.setStatus("active");
+        booster1.setBoosterStatus("idle");
         booster1.setBalance(BigDecimal.valueOf(15000));
         booster1.setRating(BigDecimal.valueOf(4.95));
         booster1.setTotalOrders(320);
@@ -85,6 +88,7 @@ public class DataInitializer implements CommandLineRunner {
         booster2.setNickname("小仙女");
         booster2.setRole("booster");
         booster2.setStatus("active");
+        booster2.setBoosterStatus("idle");
         booster2.setBalance(BigDecimal.valueOf(8000));
         booster2.setRating(BigDecimal.valueOf(4.8));
         booster2.setTotalOrders(156);
@@ -97,18 +101,19 @@ public class DataInitializer implements CommandLineRunner {
         booster3.setNickname("雷神之锤");
         booster3.setRole("booster");
         booster3.setStatus("active");
+        booster3.setBoosterStatus("idle");
         booster3.setBalance(BigDecimal.valueOf(22000));
         booster3.setRating(BigDecimal.valueOf(4.9));
         booster3.setTotalOrders(498);
-        booster3.setIntroduction("职业代练，效率保证，不满意退款");
+        booster3.setIntroduction("资深技术陪练，沟通清晰，按订单时长提供服务");
         userMapper.insert(booster3);
 
         // 服务项目
-        insertService("陪玩·标准模式", "专业陪玩，带你畅游零号大坝、长弓溪谷等经典地图", "陪玩专区", 58, "hour", "至少撤离1次", "不满意退全款", 1);
-        insertService("陪玩·高段位", "高段位陪玩，绝密模式专属，胜率保证", "陪玩专区", 88, "hour", "至少撤离2次", "未达保底退50%", 2);
-        insertService("老板护航·机密", "老板护航机密模式，保你安全撤离", "老板护航", 128, "round", "保底撤离，失败赔付", "全额退款", 3);
-        insertService("老板护航·绝密", "绝密模式老板护航，专业团队保障", "老板护航", 198, "round", "保底撤离+击杀", "全额退款", 4);
-        insertService("监狱·标准突围", "监狱地图标准突围，经验丰富", "监狱专区", 68, "round", "至少到达撤离点", "炸单赔保底", 5);
+        insertService("陪玩·标准模式", "专业陪玩，支持零号大坝、长弓溪谷等经典地图", "陪玩专区", 58, "hour", "按小时提供陪玩与组队交流", "未开始服务可申请退款", 1);
+        insertService("陪玩·高段位", "高段位技术陪练，支持绝密模式", "陪玩专区", 88, "hour", "按小时提供技术陪练服务", "服务异常按未完成时长处理", 2);
+        insertService("撤离护航·机密", "机密模式组队护航与路线协作", "老板护航", 128, "round", "按局提供组队护航服务", "未开始服务可申请退款", 3);
+        insertService("撤离护航·绝密", "绝密模式团队护航与战术协作", "老板护航", 198, "round", "按局提供团队协作服务", "服务异常由客服核实处理", 4);
+        insertService("监狱·标准突围", "监狱地图组队突围与路线协作", "监狱专区", 68, "round", "按局提供组队陪玩服务", "未开始服务可申请退款", 5);
         insertService("监狱·高效通关", "监狱高效通关，快速撤离，效率优先", "监狱专区", 108, "round", "15分钟内通关", "超时退50%", 6);
         insertService("趣味·刀战模式", "纯刀战趣味模式，娱乐为主", "趣味玩法", 38, "hour", "", "不满意退款", 7);
         insertService("趣味·狙击对决", "狙击枪对决趣味玩法", "趣味玩法", 48, "hour", "", "不满意退款", 8);

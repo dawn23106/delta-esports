@@ -37,16 +37,16 @@ start "△ Backend :8080" cmd /c ^
  && echo. ^
  && mvnw spring-boot:run"
 
-:: ===================== 前端 - 移动端 =====================
+:: ===================== 前端 - 微信小程序与客服后台 =====================
 echo [3/3] 启动前端...
 
-start "▲ Mobile :5173" cmd /c ^
-"cd /d "%~dp0frontend-mobile" ^
- && echo ===== Delta Esports Mobile ===== ^
- && echo Port: 5173 ^
- && echo URL: http://localhost:5173 ^
+start "▲ MiniProgram Compiler" cmd /c ^
+"cd /d "%~dp0frontend-uniapp" ^
+ && echo ===== Delta Esports WeChat MiniProgram ===== ^
+ && echo Output: dist/build/mp-weixin ^
+ && echo Open the repository root in WeChat DevTools after compilation. ^
  && echo. ^
- && npm run dev"
+ && npm run dev:mp-weixin"
 
 start "▲ Admin :5174" cmd /c ^
 "cd /d "%~dp0frontend-admin" ^
@@ -62,10 +62,10 @@ echo   ║  全部服务已启动!                            ║
 echo   ║                                            ║
 echo   ║  Backend :  http://localhost:8080           ║
 echo   ║  Swagger :  http://localhost:8080/swagger   ║
-echo   ║  Mobile  :  http://localhost:5173           ║
+echo   ║  MiniApp :  frontend-uniapp/dist/build/mp-weixin ║
 echo   ║  Admin   :  http://localhost:5174           ║
 echo   ║                                            ║
-echo   ║  关闭本窗口即可停止所有服务                     ║
+echo   ║  使用 stop-all.cmd 停止所有服务                 ║
 echo   ╚══════════════════════════════════════════╝
 echo.
 pause

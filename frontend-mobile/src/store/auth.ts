@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref(localStorage.getItem('accessToken') || '')
@@ -21,14 +21,12 @@ export const useAuthStore = defineStore('auth', () => {
     rememberMe.value = remember
     isGuest.value = false
 
-    // accessToken 始终持久化，避免刷新页面丢失登录
     localStorage.setItem('accessToken', data.accessToken)
     localStorage.setItem('userId', String(data.userId))
     localStorage.setItem('nickname', data.nickname)
     localStorage.setItem('userRole', data.role)
     localStorage.removeItem('isGuest')
 
-    // rememberMe 只控制 refreshToken 是否持久化
     if (remember) {
       localStorage.setItem('refreshToken', data.refreshToken)
       localStorage.setItem('rememberMe', 'true')

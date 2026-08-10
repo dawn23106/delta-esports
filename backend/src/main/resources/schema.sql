@@ -7,12 +7,14 @@
 CREATE TABLE IF NOT EXISTS t_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     phone VARCHAR(20) NOT NULL UNIQUE,
+    open_id VARCHAR(64) UNIQUE,
     password VARCHAR(200) NOT NULL,
     nickname VARCHAR(50) NOT NULL,
     avatar VARCHAR(500),
     role VARCHAR(20) NOT NULL DEFAULT 'boss',
     gender VARCHAR(10),
     status VARCHAR(20) DEFAULT 'active',
+    booster_status VARCHAR(20) DEFAULT 'offline',
     balance DECIMAL(10,2) DEFAULT 0.00,
     rating DECIMAL(3,2) DEFAULT 5.00,
     total_orders INT DEFAULT 0,
@@ -58,6 +60,29 @@ CREATE TABLE IF NOT EXISTS t_order (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 支付订单表：业务订单与第三方支付订单分离，保存回调、查单和退款状态
+CREATE TABLE IF NOT EXISTS t_payment_order (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL UNIQUE,
+    out_trade_no VARCHAR(32) NOT NULL UNIQUE,
+    provider VARCHAR(30) NOT NULL DEFAULT 'wechat',
+    status VARCHAR(30) NOT NULL DEFAULT 'created',
+    amount DECIMAL(10,2) NOT NULL,
+    merchant_id VARCHAR(64),
+    provider_order_no VARCHAR(100),
+    provider_pay_no VARCHAR(100),
+    refund_no VARCHAR(100),
+    refunded_amount DECIMAL(10,2) DEFAULT 0.00,
+    failure_reason VARCHAR(500),
+    paid_at TIMESTAMP,
+    refunded_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_out_trade_no
+    ON t_payment_order(out_trade_no);
 
 -- 公告表
 CREATE TABLE IF NOT EXISTS t_announcement (
@@ -106,6 +131,9 @@ CREATE TABLE IF NOT EXISTS t_settlement (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_settlement_order
+    ON t_settlement(order_id);
+
 -- 评价表
 CREATE TABLE IF NOT EXISTS t_review (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -117,3 +145,19 @@ CREATE TABLE IF NOT EXISTS t_review (
     tags VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_review_order
+    ON t_review(order_id);
+
+-- 订单双方聊天，仅在打手接单后开放
+CREATE TABLE IF NOT EXISTS t_order_message (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    sender_id BIGINT NOT NULL,
+    content VARCHAR(500) NOT NULL,
+    type VARCHAR(20) DEFAULT 'text',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_message_order_created
+    ON t_order_message(order_id, created_at);

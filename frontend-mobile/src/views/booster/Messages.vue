@@ -1,182 +1,150 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { getMyOrders } from '../../api/orders'
+import MobileTabbar from '../../components/MobileTabbar.vue'
 
 const orders = ref<any[]>([])
-const loading = ref(true)
-const active = ref(1)
+const refreshing = ref(false)
 
-async function load() {
-  loading.value = true
-  try {
-    const res: any = await getMyOrders(1, 50)
-    orders.value = (res.records || []).filter((o: any) => !['cancelled'].includes(o.status))
-  } catch { }
-  loading.value = false
+const statusText: Record<string, string> = {
+  assigned: '已接单',
+  in_progress: '进行中',
+  completed: '待验收',
+  done: '待结算',
+  settled: '已结算',
+  cancelled: '已取消',
 }
 
-function timeAgo(t: string) {
-  if (!t) return ''
-  const d = new Date(t)
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `${mins}分钟前`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}小时前`
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+async function load() {
+  refreshing.value = true
+  try {
+    const result: any = await getMyOrders(1, 50)
+    orders.value = (result.records || []).filter((order: any) => order.status !== 'cancelled')
+  } finally {
+    refreshing.value = false
+  }
+}
+
+function timeAgo(value: string) {
+  if (!value) return ''
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes} 分钟前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} 小时前`
+  return new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <div class="page">
-    <van-nav-bar title="我的消息" fixed placeholder />
+  <main class="mobile-page">
+    <section class="mobile-hero messages-hero">
+      <div class="eyebrow">Messages</div>
+      <h1 class="page-title">我的消息</h1>
+      <p class="page-subtitle">接单后的订单沟通都会集中在这里。</p>
+    </section>
 
-    <van-pull-refresh v-model="loading" @refresh="load">
-      <div class="list" v-if="orders.length">
-        <div v-for="o in orders" :key="o.id" class="msg-item" @click="$router.push(`/booster/messages/${o.id}`)">
-          <van-image round width="48" height="48" src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" class="avatar" />
-          <div class="msg-info">
-            <div class="msg-top">
-              <span class="msg-title">订单 #{{ o.id }}</span>
-              <span class="msg-time">{{ timeAgo(o.updatedAt || o.createdAt) }}</span>
-            </div>
-            <div class="msg-bottom">
-              <span class="msg-preview">¥{{ o.amount }} · {{ o.gameMap || '未指定' }}</span>
-              <span class="msg-badge" v-if="o.status === 'in_progress'">进行中</span>
-              <span class="msg-badge done" v-else-if="o.status === 'settled'">已结算</span>
-            </div>
+    <van-pull-refresh v-model="refreshing" @refresh="load">
+      <section v-if="orders.length" class="message-list">
+        <article v-for="order in orders" :key="order.id" class="message-card" @click="$router.push(`/booster/messages/${order.id}`)">
+          <div class="message-avatar">
+            <van-icon name="chat-o" />
           </div>
-        </div>
-      </div>
+          <div class="message-main">
+            <div class="message-top">
+              <strong>订单 #{{ order.id }}</strong>
+              <span>{{ timeAgo(order.updatedAt || order.createdAt) }}</span>
+            </div>
+            <p>￥{{ order.amount }} · {{ order.gameMap || '未指定地图' }}</p>
+          </div>
+          <span class="message-status">{{ statusText[order.status] || order.status }}</span>
+        </article>
+      </section>
 
-      <div v-else-if="!loading" class="empty">
-        <div class="empty-icon-wrap">
-          <span class="empty-emoji">💬</span>
+      <div v-else-if="!refreshing" class="empty-state">
+        <div>
+          <h3>暂无消息</h3>
+          <p>接单后这里会出现订单沟通入口。</p>
         </div>
-        <div class="empty-title">暂无消息</div>
-        <div class="empty-desc">接单后这里会出现订单群聊</div>
       </div>
     </van-pull-refresh>
 
-    <van-tabbar v-model="active" route :border="false" active-color="#6366f1" inactive-color="#94a3b8" safe-area-inset-bottom class="tabbar">
-      <van-tabbar-item icon="orders-o" to="/booster/pool">订单池</van-tabbar-item>
-      <van-tabbar-item icon="logistics" to="/booster/orders">订单处理</van-tabbar-item>
-      <van-tabbar-item icon="user-o" to="/booster/profile">我的</van-tabbar-item>
-    </van-tabbar>
-  </div>
+    <MobileTabbar role="booster" />
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f8fafc;
-  padding-bottom: 60px;
+.messages-hero {
+  background-image:
+    linear-gradient(135deg, rgba(16,19,35,.76), rgba(49,87,255,.52)),
+    url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1000&h=900&fit=crop');
 }
-.list {
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+
+.message-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
 }
-.msg-item {
-  background: #fff;
-  border-radius: 16px;
-  padding: 14px;
+
+.message-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-  border: 1px solid #f1f5f9;
-  transition: background 0.15s;
+  border: 1px solid rgba(228,231,236,.95);
+  border-radius: 18px;
+  background: rgba(255,255,255,.9);
+  padding: 13px;
+  box-shadow: 0 8px 22px rgba(16,24,40,.05);
 }
-.msg-item:active {
-  background: #f8fafc;
+
+.message-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: var(--mobile-brand);
+  background: #eef4ff;
+  font-size: 23px;
 }
-.avatar {
-  flex-shrink: 0;
-}
-.msg-info {
-  flex: 1;
+
+.message-main {
   min-width: 0;
-}
-.msg-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-.msg-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
-}
-.msg-time {
-  font-size: 11px;
-  color: #94a3b8;
-}
-.msg-bottom {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.msg-preview {
-  font-size: 13px;
-  color: #94a3b8;
   flex: 1;
+}
+
+.message-top {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.message-top strong {
+  color: var(--mobile-ink);
+  font-size: 15px;
+}
+
+.message-top span {
+  color: var(--mobile-faint);
+  font-size: 11px;
+}
+
+.message-main p {
+  margin: 5px 0 0;
   overflow: hidden;
+  color: var(--mobile-muted);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.msg-badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: #eef2ff;
-  color: #6366f1;
-  font-weight: 500;
-}
-.msg-badge.done {
-  background: #ecfdf5;
-  color: #10b981;
-}
 
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 100px;
-}
-.empty-icon-wrap {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-.empty-emoji {
-  font-size: 36px;
-}
-.empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #64748b;
-}
-.empty-desc {
-  font-size: 13px;
-  color: #94a3b8;
-  margin-top: 4px;
-}
-
-.tabbar {
-  background: rgba(255,255,255,0.9) !important;
-  backdrop-filter: blur(20px) !important;
-  border-top: 1px solid #f1f5f9 !important;
+.message-status {
+  flex: 0 0 auto;
+  color: var(--mobile-brand);
+  font-size: 12px;
+  font-weight: 850;
 }
 </style>

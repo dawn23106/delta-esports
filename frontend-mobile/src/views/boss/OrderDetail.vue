@@ -1,195 +1,306 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { getOrderDetail, cancelOrder } from '../../api/orders'
-import { showToast, showConfirmDialog } from 'vant'
+import { showConfirmDialog, showToast } from 'vant'
+import { cancelOrder, getOrderDetail } from '../../api/orders'
 import { useAuthGuard } from '../../composables/useAuthGuard'
-import { Motion } from 'motion-v'
-import Confetti from '../../components/Confetti.vue'
 
 const route = useRoute()
 const order = ref<any>(null)
-const id = Number(route.params.id)
+const loading = ref(false)
 const loadFailed = ref(false)
+const id = Number(route.params.id)
 const { requireLogin } = useAuthGuard()
-const confettiRef = ref<InstanceType<typeof Confetti> | null>(null)
 
-function statusLabel(s: string) {
-  return { pending:'待接单',assigned:'已接单',in_progress:'进行中',completed:'待审核',done:'已确认',settled:'已结算',cancelled:'已取消',disputed:'争议中' }[s] || s
+const statusText: Record<string, string> = {
+  pending: '待接单',
+  assigned: '已接单',
+  in_progress: '进行中',
+  completed: '待验收',
+  done: '已确认',
+  settled: '已结算',
+  cancelled: '已取消',
+  disputed: '争议中',
 }
-function statusColor(s: string) {
-  return { pending:'#f59e0b',assigned:'#3b82f6',in_progress:'#6366f1',completed:'#8b5cf6',done:'#10b981',settled:'#6b7280',cancelled:'#ef4444',disputed:'#f97316' }[s] || '#94a3b8'
+
+const statusHint: Record<string, string> = {
+  pending: '订单已创建，正在等待陪玩接单。',
+  assigned: '陪玩已接单，即将开始服务。',
+  in_progress: '服务正在进行，请保持沟通。',
+  completed: '陪玩已提交结单，请确认结果。',
+  done: '你已确认达标，等待平台结算。',
+  settled: '订单已完成并结算。',
+  cancelled: '订单已取消。',
+  disputed: '订单正在争议处理中。',
 }
 
-const steps = ref<{ label:string; time:string; desc?:string; done:boolean }[]>([])
+const steps = ref<{ label: string; time: string; desc?: string }[]>([])
 
-function buildSteps(o: any) {
-  const s: any[] = []
-  if (o.createdAt) s.push({ label:'下单成功', time: o.createdAt, desc: o.bossNote || '', done: true })
-  if (o.assignedAt) s.push({ label:'陪陪接单', time: o.assignedAt, done: true })
-  if (o.startedAt) s.push({ label:'开始代练', time: o.startedAt, done: true })
-  if (o.completedAt) s.push({ label:'申请结单', time: o.completedAt, desc: o.isQualified ? '自评：达标' : '自评：未达标', done: true })
-  if (o.doneAt) s.push({ label:'确认达标', time: o.doneAt, done: true })
-  if (o.settledAt) s.push({ label:'已结算', time: o.settledAt, done: true })
-  if (o.status === 'cancelled') s.push({ label:'已取消', time: new Date().toISOString(), done: true })
-  return s
+function buildSteps(source: any) {
+  const list = []
+  if (source.createdAt) list.push({ label: '下单成功', time: source.createdAt, desc: source.bossNote })
+  if (source.assignedAt) list.push({ label: '陪玩接单', time: source.assignedAt })
+  if (source.startedAt) list.push({ label: '开始服务', time: source.startedAt })
+  if (source.completedAt) list.push({ label: '申请结单', time: source.completedAt, desc: source.isQualified ? '陪玩自评：达标' : '陪玩自评：未达标' })
+  if (source.doneAt) list.push({ label: '确认达标', time: source.doneAt })
+  if (source.settledAt) list.push({ label: '完成结算', time: source.settledAt })
+  if (source.status === 'cancelled') list.push({ label: '订单取消', time: source.updatedAt || source.createdAt })
+  return list
+}
+
+function formatTime(value: string) {
+  return value?.replace('T', ' ').substring(0, 16) || ''
+}
+
+function resultImages() {
+  if (!order.value?.resultImages) return []
+  try {
+    return JSON.parse(order.value.resultImages)
+  } catch {
+    return []
+  }
 }
 
 async function load() {
+  loading.value = true
   loadFailed.value = false
   try {
-    const res: any = await getOrderDetail(id)
-    order.value = res
-    steps.value = buildSteps(res)
-    if (res.status === 'settled' || res.status === 'done') {
-      setTimeout(() => confettiRef.value?.fire(), 500)
-    }
-  } catch { loadFailed.value = true }
+    const result: any = await getOrderDetail(id)
+    order.value = result
+    steps.value = buildSteps(result)
+  } catch {
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
 async function handleCancel() {
   if (!await requireLogin('取消订单')) return
   try {
-    await showConfirmDialog({ title:'确认取消', message:'确定要取消这个订单吗？' })
+    await showConfirmDialog({ title: '取消订单', message: '确定要取消这个订单吗？', confirmButtonText: '取消订单', confirmButtonColor: '#f04438' })
     await cancelOrder(id)
-    showToast('已取消')
+    showToast('订单已取消')
     load()
-  } catch { }
+  } catch {
+    // user cancelled
+  }
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <!-- 订单详情 -->
-  <div class="page" v-if="order">
-    <Confetti ref="confettiRef" />
-    <van-nav-bar title="订单详情" left-arrow @click-left="$router.back()" fixed placeholder />
+  <main class="mobile-page no-tabbar">
+    <van-nav-bar title="订单详情" left-arrow @click-left="$router.back()" />
 
-    <!-- 状态头部 -->
-    <Motion :initial="{ opacity: 0, y: -20 }" :animate="{ opacity: 1, y: 0 }" :transition="{ duration: .5 }">
-    <div class="status-head" :style="{ background: statusColor(order.status) }">
-      <div class="status-blob" />
-      <div class="status-label">{{ statusLabel(order.status) }}</div>
-      <div class="status-order">订单 #{{ order.id }}</div>
-    </div>
-    </Motion>
-
-    <!-- 金额卡片 -->
-    <div class="info-card">
-      <div class="info-row">
-        <span>订单金额</span>
-        <span class="info-price">¥{{ order.amount }}</span>
-      </div>
-      <div class="info-row" v-if="order.serviceId">
-        <span>服务编号</span>
-        <span>#{{ order.serviceId }}</span>
-      </div>
-      <div class="info-row" v-if="order.gameMap">
-        <span>游戏地图</span>
-        <span>{{ order.gameMap }}</span>
-      </div>
-      <div class="info-row" v-if="order.bossNote">
-        <span>老板备注</span>
-        <span>{{ order.bossNote }}</span>
-      </div>
+    <div v-if="loading" class="mobile-card loading-card">
+      <van-loading color="#3157ff" />
+      <span>正在加载订单</span>
     </div>
 
-    <!-- 时间线 -->
-    <div class="timeline-card">
-      <div class="tl-title">订单进度</div>
-      <div class="tl-list">
-        <Motion
-          v-for="(s, i) in steps" :key="i"
-          :initial="{ opacity: 0, x: -12 }" :animate="{ opacity: 1, x: 0 }"
-          :transition="{ duration: .35, delay: .1 * i }"
-          class="tl-item" :class="{ done: s.done }"
-        >
-          <div class="tl-dot" :class="{ active: i === steps.length - 1 && s.done }" />
-          <div class="tl-line" v-if="i < steps.length - 1" />
-          <div class="tl-content">
-            <div class="tl-label">{{ s.label }}</div>
-            <div class="tl-time">{{ s.time?.replace('T',' ').substring(5,16) }}</div>
-            <div class="tl-desc" v-if="s.desc">{{ s.desc }}</div>
+    <template v-else-if="order">
+      <section class="mobile-hero detail-hero">
+        <div class="eyebrow">Order #{{ order.id }}</div>
+        <h1 class="page-title">{{ statusText[order.status] || order.status }}</h1>
+        <p class="page-subtitle">{{ statusHint[order.status] || '订单状态已更新。' }}</p>
+        <div class="metric-grid hero-metrics">
+          <div class="metric"><strong>￥{{ order.amount }}</strong><span>金额</span></div>
+          <div class="metric"><strong>{{ order.gameMap ? '已选' : '默认' }}</strong><span>地图</span></div>
+          <div class="metric"><strong>{{ steps.length }}</strong><span>节点</span></div>
+        </div>
+      </section>
+
+      <section class="mobile-card info-card">
+        <div v-if="order.serviceId" class="info-row">
+          <span>服务编号</span>
+          <strong>#{{ order.serviceId }}</strong>
+        </div>
+        <div class="info-row">
+          <span>地图模式</span>
+          <strong>{{ order.gameMap || '未指定地图' }}</strong>
+        </div>
+        <div v-if="order.bossNote" class="info-row note">
+          <span>我的备注</span>
+          <strong>{{ order.bossNote }}</strong>
+        </div>
+      </section>
+
+      <section class="mobile-card timeline-card">
+        <h2>订单进度</h2>
+        <div class="timeline">
+          <div v-for="(step, index) in steps" :key="`${step.label}-${index}`" class="step">
+            <span class="dot" />
+            <div>
+              <strong>{{ step.label }}</strong>
+              <small>{{ formatTime(step.time) }}</small>
+              <p v-if="step.desc">{{ step.desc }}</p>
+            </div>
           </div>
-        </Motion>
+        </div>
+      </section>
+
+      <section v-if="resultImages().length" class="mobile-card result-card">
+        <h2>结果截图</h2>
+        <div class="image-grid">
+          <img v-for="(image, index) in resultImages()" :key="index" :src="image" alt="订单结果截图" />
+        </div>
+      </section>
+
+      <section v-if="order.resultNote" class="mobile-card result-card">
+        <h2>结单备注</h2>
+        <p>{{ order.resultNote }}</p>
+      </section>
+
+      <van-button v-if="!['settled', 'cancelled'].includes(order.status)" block round plain type="danger" class="cancel-btn" @click="handleCancel">
+        取消订单
+      </van-button>
+    </template>
+
+    <div v-else class="empty-state">
+      <div>
+        <h3>{{ loadFailed ? '无法查看订单' : '订单不存在' }}</h3>
+        <p>请返回订单记录重新进入。</p>
       </div>
     </div>
-
-    <!-- 结果截图 -->
-    <div class="info-card" v-if="order.resultImages">
-      <div class="card-subtitle">结果截图</div>
-      <div class="img-row">
-        <img v-for="(img, i) in JSON.parse(order.resultImages || '[]')" :key="i" :src="img" class="result-img" />
-      </div>
-    </div>
-
-    <!-- 结单备注 -->
-    <div class="info-card" v-if="order.resultNote">
-      <div class="card-subtitle">结单备注</div>
-      <p class="card-text">{{ order.resultNote }}</p>
-    </div>
-
-    <!-- 取消 -->
-    <div class="action-bar" v-if="!['settled','cancelled'].includes(order.status)">
-      <van-button round block type="danger" plain @click="handleCancel">取消订单</van-button>
-    </div>
-  </div>
-
-  <!-- 空状态 -->
-  <div v-else class="page empty-page">
-    <van-nav-bar title="订单详情" left-arrow @click-left="$router.back()" fixed placeholder />
-    <div class="empty-content">
-      <span class="empty-icon">🔒</span>
-      <p>无法查看该订单</p>
-      <van-button round type="primary" @click="$router.push('/login')" color="linear-gradient(135deg, #6366f1, #8b5cf6)">去登录</van-button>
-    </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6fa; padding-bottom: 40px; }
+.loading-card {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
 
-/* Status Head */
-.status-head { padding: 28px 20px; position: relative; overflow: hidden; color: #fff; }
-.status-blob { position: absolute; top: -30px; right: -20px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.08); }
-.status-label { font-size: 20px; font-weight: 800; position: relative; z-index: 1; }
-.status-order { font-size: 13px; opacity: .7; margin-top: 4px; position: relative; z-index: 1; }
+.detail-hero {
+  margin-top: 14px;
+  background-image:
+    linear-gradient(135deg, rgba(16,19,35,.76), rgba(49,87,255,.52)),
+    url('https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1000&h=900&fit=crop');
+}
 
-/* Info Card */
-.info-card { background: #fff; border-radius: 14px; padding: 16px; margin: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.03); }
-.info-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; color: #64748b; }
-.info-row + .info-row { border-top: 1px solid #f5f5f5; }
-.info-row span:last-child { color: #1e293b; font-weight: 500; }
-.info-price { font-size: 22px !important; font-weight: 800 !important; color: #6366f1 !important; }
+.hero-metrics {
+  margin-top: 18px;
+}
 
-/* Timeline */
-.timeline-card { background: #fff; border-radius: 14px; padding: 16px; margin: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.03); }
-.tl-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 16px; }
-.tl-list { position: relative; padding-left: 20px; }
-.tl-item { position: relative; padding-bottom: 18px; }
-.tl-item:last-child { padding-bottom: 0; }
-.tl-dot { position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #e2e8f0; z-index: 1; }
-.tl-dot.active { background: #6366f1; box-shadow: 0 0 0 4px rgba(99,102,241,.2); }
-.tl-line { position: absolute; left: -16px; top: 14px; bottom: 0; width: 2px; background: #e2e8f0; }
-.tl-item.done .tl-line { background: #6366f1; }
-.tl-item.done .tl-dot { background: #6366f1; }
-.tl-label { font-size: 14px; font-weight: 600; color: #1e293b; }
-.tl-time { font-size: 11px; color: #94a3b8; margin-top: 2px; }
-.tl-desc { font-size: 12px; color: #64748b; margin-top: 4px; background: #f8fafc; padding: 6px 10px; border-radius: 8px; }
+.info-card,
+.timeline-card,
+.result-card {
+  margin-top: 12px;
+}
 
-/* Images */
-.card-subtitle { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 10px; }
-.card-text { font-size: 13px; color: #64748b; margin: 0; line-height: 1.6; }
-.img-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.result-img { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; }
+.info-card {
+  display: grid;
+  gap: 12px;
+}
 
-/* Action */
-.action-bar { padding: 16px 12px; }
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--mobile-muted);
+  font-size: 13px;
+}
 
-/* Empty */
-.empty-page { display: flex; flex-direction: column; }
-.empty-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-.empty-icon { font-size: 48px; }
-.empty-content p { color: #94a3b8; font-size: 14px; }
+.info-row strong {
+  max-width: 64%;
+  color: var(--mobile-ink);
+  text-align: right;
+  font-size: 14px;
+}
+
+.info-row.note {
+  align-items: flex-start;
+}
+
+.timeline-card h2,
+.result-card h2 {
+  margin: 0 0 14px;
+  color: var(--mobile-ink);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.timeline {
+  display: grid;
+  gap: 0;
+}
+
+.step {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 18px;
+}
+
+.step:last-child {
+  padding-bottom: 0;
+}
+
+.step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 5px;
+  bottom: 0;
+  width: 2px;
+  background: #dbe7ff;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--mobile-brand);
+  margin-top: 3px;
+  box-shadow: 0 0 0 4px #eef4ff;
+}
+
+.step strong,
+.step small {
+  display: block;
+}
+
+.step strong {
+  color: var(--mobile-ink);
+  font-size: 14px;
+}
+
+.step small {
+  margin-top: 3px;
+  color: var(--mobile-faint);
+  font-size: 11px;
+}
+
+.step p,
+.result-card p {
+  margin: 8px 0 0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--mobile-muted);
+  padding: 9px 10px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.image-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.cancel-btn {
+  margin-top: 14px;
+}
 </style>

@@ -25,6 +25,13 @@ public class JwtInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        String requestUri = request.getRequestURI();
+        boolean publicRead = "GET".equalsIgnoreCase(request.getMethod())
+                && (requestUri.equals("/api/services")
+                || requestUri.matches("/api/services/\\d+")
+                || requestUri.equals("/api/announcements"));
+        if (publicRead) return true;
+
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             response.setContentType("application/json;charset=UTF-8");
@@ -37,7 +44,7 @@ public class JwtInterceptor implements HandlerInterceptor {
         }
 
         String token = authHeader.substring(7);
-        if (jwtUtils.isTokenExpired(token)) {
+        if (jwtUtils.isTokenExpired(token) || !jwtUtils.isAccessToken(token)) {
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(401);
             Map<String, Object> body = new HashMap<>();

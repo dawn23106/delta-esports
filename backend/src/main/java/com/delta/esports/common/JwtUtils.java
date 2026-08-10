@@ -47,6 +47,7 @@ public class JwtUtils {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("role", role);
+        claims.put("tokenType", "access");
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(String.valueOf(userId))
@@ -58,6 +59,7 @@ public class JwtUtils {
 
     public String generateRefreshToken(Long userId) {
         return Jwts.builder()
+                .claim("tokenType", "refresh")
                 .setSubject(String.valueOf(userId))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration))
@@ -92,5 +94,15 @@ public class JwtUtils {
     public boolean isTokenExpired(String token) {
         Claims claims = parseToken(token);
         return claims == null || claims.getExpiration().before(new Date());
+    }
+
+    public boolean isAccessToken(String token) {
+        Claims claims = parseToken(token);
+        return claims != null && "access".equals(claims.get("tokenType", String.class));
+    }
+
+    public boolean isRefreshToken(String token) {
+        Claims claims = parseToken(token);
+        return claims != null && "refresh".equals(claims.get("tokenType", String.class));
     }
 }

@@ -31,7 +31,7 @@ if not exist "%WRAPPER_JAR%" (
     exit /b 1
 )
 
-"%JAVA_EXE%" %MAVEN_OPTS% -classpath "%WRAPPER_JAR%" %WRAPPER_LAUNCHER% %MAVEN_CONFIG% %*
+"%JAVA_EXE%" %MAVEN_OPTS% "-Dmaven.multiModuleProjectDirectory=%MAVEN_PROJECTBASEDIR%" -classpath "%WRAPPER_JAR%" %WRAPPER_LAUNCHER% %MAVEN_CONFIG% %*
 if %ERRORLEVEL% equ 0 goto end
 exit /b 1
 

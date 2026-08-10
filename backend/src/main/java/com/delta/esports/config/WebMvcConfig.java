@@ -37,7 +37,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         // Rate limiting: auth endpoints only
         registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/api/auth/login", "/api/auth/register", "/api/auth/refresh");
+                .addPathPatterns("/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/auth/wx-login");
 
         // JWT authentication: all /api/** except public endpoints
         registry.addInterceptor(jwtInterceptor)
@@ -46,9 +46,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                     "/api/auth/login",
                     "/api/auth/register",
                     "/api/auth/refresh",
-                    "/api/services",
-                    "/api/services/*",
-                    "/api/announcements",
+                    "/api/auth/wx-login",
+                    "/api/payments/callbacks/provider/pay",
+                    "/api/payments/callbacks/provider/refund",
                     "/swagger-ui/**",
                     "/v3/api-docs/**"
                 );

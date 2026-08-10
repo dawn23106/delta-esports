@@ -11,7 +11,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 @OpenAPIDefinition(info = @Info(
     title = "Delta Esports API",
     version = "2.0",
-    description = "沧月电竞 - 游戏陪玩代练服务平台"))
+    description = "沧月电竞 - 电竞陪玩与组队服务平台"))
 public class DeltaEsportsApplication {
     public static void main(String[] args) {
         SpringApplication.run(DeltaEsportsApplication.class, args);

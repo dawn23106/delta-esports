@@ -35,4 +35,13 @@ public class ReviewController {
                                      @RequestParam(defaultValue = "10") int size) {
         return Result.success(reviewService.getBoosterReviews(boosterId, page, size));
     }
+
+    @Operation(summary = "我提交的评价")
+    @GetMapping("/my")
+    public Result<?> myReviews(HttpServletRequest request,
+                               @RequestParam(defaultValue = "1") int page,
+                               @RequestParam(defaultValue = "20") int size) {
+        Long userId = (Long) request.getAttribute("userId");
+        return Result.success(reviewService.getBossReviews(userId, page, size));
+    }
 }

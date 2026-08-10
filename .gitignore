@@ -10,6 +10,14 @@ frontend-admin/node_modules/
 frontend-admin/dist/
 frontend-mobile/node_modules/
 frontend-mobile/dist/
+frontend-uniapp/node_modules/
+frontend-uniapp/dist/
+
+# Local environment and generated diagnostics
+.env
+.env.*
+!.env.example
+backend/effective-pom
 
 # IDE (keep run configurations only)
 .idea/*

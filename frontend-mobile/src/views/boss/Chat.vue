@@ -19,17 +19,15 @@ const { requireLogin } = useAuthGuard()
 const statusLabels: Record<string, string> = {
   pending: '待接单', assigned: '已接单', in_progress: '进行中',
   completed: '待审核', done: '已确认', settled: '已结算',
-  cancelled: '已取消', disputed: '争议中'
+  cancelled: '已取消', disputed: '争议中',
 }
 
-/** 是否允许发送消息：已取消/已结算不可发 */
 const canSendMessage = computed(() => {
-  if (!orderInfo.value) return true // 尚未加载完成，先展示输入框
+  if (!orderInfo.value) return true
   const s = orderInfo.value.status
   return s !== 'cancelled' && s !== 'settled'
 })
 
-/** 输入栏底部的提示文案 */
 const inputHint = computed(() => {
   if (!orderInfo.value) return ''
   const s = orderInfo.value.status
@@ -64,24 +62,19 @@ async function loadMessages() {
   }
 }
 
-/** 静默轮询新消息（不显示loading，不触发403提示） */
 async function pollMessages() {
   try {
     const res: any = await request.get(`/messages/${orderId}`)
     const latest: any[] = res || []
-    // 数量变了 或 存在无id的乐观消息 → 全量替换去重
     if (latest.length !== messages.value.length || messages.value.some((m: any) => !m.id)) {
       messages.value = latest
       scrollBottom()
     }
-  } catch {
-    // 轮询失败静默跳过
-  }
+  } catch { /* 静默跳过 */ }
 }
 
-/** 获取消息发送者的显示标签（仅对方显示） */
 function senderLabel(msg: any): string {
-  if (msg.senderId === auth.userId) return '' // 自己不发标签
+  if (msg.senderId === auth.userId) return ''
   if (orderInfo.value) {
     if (msg.senderId === orderInfo.value.bossId) return '老板'
     if (msg.senderId === orderInfo.value.boosterId) return '打手'
@@ -111,7 +104,7 @@ async function sendMessage() {
       senderId: auth.userId,
       content: inputText.value,
       type: 'text',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     })
     inputText.value = ''
     scrollBottom()
@@ -141,7 +134,6 @@ function formatTime(t: string) {
     d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-// 日期分组
 const groupedMessages = ref<{ date: string; items: any[] }[]>([])
 
 watch(() => messages.value.length, () => {
@@ -171,7 +163,6 @@ onUnmounted(() => {
 
 <template>
   <div class="chat-page">
-    <!-- 顶栏 -->
     <van-nav-bar left-arrow @click-left="$router.back()" fixed placeholder>
       <template #title>
         <div class="nav-title-wrap">
@@ -182,23 +173,19 @@ onUnmounted(() => {
         </div>
       </template>
       <template #right>
-        <span class="text-xs text-gray-400">#{{ orderId }}</span>
+        <span class="nav-oid">#{{ orderId }}</span>
       </template>
     </van-nav-bar>
 
-    <!-- 消息列表 -->
     <div id="chat-list" class="chat-body">
-      <!-- 加载中 -->
-      <div v-if="pageLoading" class="flex justify-center py-20">
-        <van-loading size="24" color="#6366f1" />
+      <div v-if="pageLoading" class="chat-loading">
+        <van-loading color="#3157ff" />
       </div>
 
-      <!-- 消息分组 -->
       <template v-else>
-        <!-- 订单信息条 -->
         <div v-if="orderInfo" class="order-info-bar">
           <div class="order-info-left">
-            <span class="order-info-amount">¥{{ orderInfo.amount }}</span>
+            <strong class="order-info-amount">¥{{ orderInfo.amount }}</strong>
             <span v-if="orderInfo.gameMap" class="order-info-map">{{ orderInfo.gameMap }}</span>
           </div>
           <span class="order-info-status" :class="orderInfo.status">
@@ -207,16 +194,15 @@ onUnmounted(() => {
         </div>
 
         <div v-for="group in groupedMessages" :key="group.date">
-          <!-- 日期线 -->
           <div class="date-divider">
             <span>{{ group.date }}</span>
           </div>
 
-          <!-- 消息：微信风格 — 收到的靠左，发出的靠右 -->
-          <div v-for="(msg, i) in group.items" :key="i"
+          <div
+            v-for="(msg, i) in group.items"
+            :key="i"
             :class="['msg-row', { mine: msg.senderId === auth.userId }]"
           >
-            <!-- 对方消息：头像在左 -->
             <template v-if="msg.senderId !== auth.userId">
               <div class="msg-avatar">
                 <span class="avatar-emoji">{{ orderInfo && msg.senderId === orderInfo.boosterId ? '🎮' : '👤' }}</span>
@@ -229,7 +215,6 @@ onUnmounted(() => {
                 </div>
               </div>
             </template>
-            <!-- 自己消息：气泡在右，无头像 -->
             <template v-else>
               <div class="msg-bubble mine">
                 <div class="msg-text">{{ msg.content }}</div>
@@ -240,18 +225,15 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <!-- 空状态 -->
-      <div v-if="!pageLoading && messages.length === 0" class="chat-empty">
-        <div class="empty-icon">
-          <span class="text-4xl">💬</span>
+      <div v-if="!pageLoading && messages.length === 0" class="empty-state">
+        <div>
+          <h3>开始对话</h3>
+          <p>{{ auth.userRole === 'booster' ? '发送第一条消息与老板沟通订单详情' : '发送第一条消息与陪陪沟通订单详情' }}</p>
         </div>
-        <div class="empty-title">开始对话</div>
-        <div class="empty-desc">{{ auth.userRole === 'booster' ? '发送第一条消息与老板沟通订单详情' : '发送第一条消息与陪陪沟通订单详情' }}</div>
       </div>
     </div>
 
-    <!-- 输入栏 -->
-    <div class="chat-input-bar" v-if="canSendMessage">
+    <div v-if="canSendMessage" class="chat-input-bar">
       <div class="input-wrap">
         <input
           v-model="inputText"
@@ -267,8 +249,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 只读提示（已结算/已取消） -->
-    <div class="chat-input-bar archived-bar" v-else-if="inputHint">
+    <div v-else-if="inputHint" class="chat-input-bar archived-bar">
       <div class="archived-hint">{{ inputHint }}</div>
     </div>
   </div>
@@ -277,137 +258,173 @@ onUnmounted(() => {
 <style scoped>
 .chat-page {
   min-height: 100vh;
-  background: #f0f4ff;
+  background:
+    radial-gradient(circle at 18% -4%, rgba(49, 87, 255, .06), transparent 28%),
+    linear-gradient(180deg, #f7faff 0%, #eef3f9 100%);
   display: flex;
   flex-direction: column;
 }
 
-/* 导航标题 */
+/* ---- 导航栏 ---- */
 .nav-title-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
+
 .nav-title {
   font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
+  font-weight: 750;
+  color: var(--mobile-ink);
 }
+
+.nav-oid {
+  font-size: 12px;
+  color: var(--mobile-faint);
+}
+
 .nav-status {
   font-size: 10px;
   padding: 1px 8px;
   border-radius: 8px;
-  font-weight: 500;
+  font-weight: 650;
 }
-.nav-status.in_progress, .nav-status.assigned {
-  background: #eef2ff;
-  color: #6366f1;
+
+.nav-status.in_progress,
+.nav-status.assigned {
+  background: #eef4ff;
+  color: var(--mobile-brand);
 }
-.nav-status.completed, .nav-status.done {
-  background: #fffbeb;
-  color: #d97706;
+
+.nav-status.completed,
+.nav-status.done {
+  background: #fffaeb;
+  color: #b54708;
 }
+
 .nav-status.settled {
   background: #ecfdf5;
-  color: #10b981;
-}
-.nav-status.cancelled, .nav-status.disputed {
-  background: #fef2f2;
-  color: #ef4444;
+  color: var(--mobile-success);
 }
 
+.nav-status.cancelled,
+.nav-status.disputed {
+  background: #fef2f2;
+  color: var(--mobile-danger);
+}
+
+/* ---- 聊天主体 ---- */
 .chat-body {
   flex: 1;
-  padding: 12px 16px;
+  padding: 12px 14px;
+  padding-bottom: 84px;
   overflow-y: auto;
-  /* 留出输入栏高度 */
-  padding-bottom: 80px;
 }
 
-/* 订单信息条 */
+.chat-loading {
+  display: flex;
+  justify-content: center;
+  padding-top: 60px;
+}
+
+/* ---- 订单信息条 ---- */
 .order-info-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255,255,255,0.9);
-  backdrop-filter: blur(8px);
-  border-radius: 12px;
+  border: 1px solid rgba(228, 231, 236, .9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .9);
   padding: 10px 14px;
   margin-bottom: 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  border: 1px solid #f1f5f9;
+  box-shadow: 0 6px 16px rgba(16, 24, 40, .04);
 }
+
 .order-info-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .order-info-amount {
   font-size: 16px;
-  font-weight: 700;
-  color: #6366f1;
+  font-weight: 900;
+  color: var(--mobile-brand);
 }
+
 .order-info-map {
   font-size: 12px;
-  color: #94a3b8;
-  background: #f1f5f9;
-  padding: 2px 8px;
-  border-radius: 4px;
+  color: var(--mobile-muted);
+  background: #f2f4f7;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-weight: 650;
 }
+
 .order-info-status {
   font-size: 11px;
   padding: 2px 10px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-.order-info-status.in_progress, .order-info-status.assigned {
-  background: #eef2ff;
-  color: #6366f1;
-}
-.order-info-status.completed, .order-info-status.done {
-  background: #fffbeb;
-  color: #d97706;
-}
-.order-info-status.settled {
-  background: #ecfdf5;
-  color: #10b981;
-}
-.order-info-status.cancelled, .order-info-status.disputed {
-  background: #fef2f2;
-  color: #ef4444;
+  border-radius: 999px;
+  font-weight: 650;
 }
 
-/* 日期分隔线 */
+.order-info-status.in_progress,
+.order-info-status.assigned {
+  background: #eef4ff;
+  color: var(--mobile-brand);
+}
+
+.order-info-status.completed,
+.order-info-status.done {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.order-info-status.settled {
+  background: #ecfdf5;
+  color: var(--mobile-success);
+}
+
+.order-info-status.cancelled,
+.order-info-status.disputed {
+  background: #fef2f2;
+  color: var(--mobile-danger);
+}
+
+/* ---- 日期分隔 ---- */
 .date-divider {
   display: flex;
   justify-content: center;
   margin: 16px 0;
 }
+
 .date-divider span {
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(8px);
-  padding: 4px 16px;
   border-radius: 20px;
+  background: rgba(255, 255, 255, .8);
+  padding: 4px 16px;
   font-size: 12px;
-  color: #94a3b8;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  color: var(--mobile-faint);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .03);
 }
 
-/* 消息行 */
+/* ---- 消息行 ---- */
 .msg-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 14px;
 }
+
 .msg-row.mine {
   justify-content: flex-end;
 }
+
 .msg-avatar {
   flex-shrink: 0;
   margin-top: 2px;
 }
+
 .avatar-emoji {
   font-size: 28px;
   line-height: 36px;
@@ -415,79 +432,54 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* 消息块（标签+气泡） */
 .msg-block {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-width: 75%;
+  max-width: 72%;
 }
+
 .msg-sender {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--mobile-faint);
   padding: 0 4px;
 }
 
-/* 气泡 */
+/* ---- 气泡 ---- */
 .msg-bubble {
   background: #fff;
   border-radius: 18px 18px 18px 6px;
   padding: 10px 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  position: relative;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, .04);
+  border: 1px solid rgba(228, 231, 236, .5);
 }
+
 .msg-bubble.mine {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #3157ff, #08b6d8);
+  border: 0;
   border-radius: 18px 18px 6px 18px;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(99,102,241,0.2);
+  box-shadow: 0 6px 18px rgba(49, 87, 255, .22);
 }
+
 .msg-text {
   font-size: 15px;
   line-height: 1.5;
   word-break: break-word;
+  color: var(--mobile-ink);
 }
+
 .msg-bubble.mine .msg-text {
   color: #fff;
 }
-.msg-bubble:not(.mine) .msg-text {
-  color: #1e293b;
-}
+
 .msg-time {
-  font-size: 10px;
   margin-top: 4px;
-  opacity: 0.5;
+  font-size: 10px;
+  opacity: .45;
 }
 
-/* 空状态 */
-.chat-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 100px;
-}
-.empty-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-.empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #64748b;
-}
-.empty-desc {
-  font-size: 13px;
-  color: #94a3b8;
-  margin-top: 6px;
-}
-
-/* 输入栏 */
+/* ---- 输入栏 ---- */
 .chat-input-bar {
   position: fixed;
   bottom: 0;
@@ -495,29 +487,33 @@ onUnmounted(() => {
   right: 0;
   padding: 10px 12px;
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
-  background: rgba(255,255,255,0.9);
+  background: rgba(255, 255, 255, .92);
   backdrop-filter: blur(20px);
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid rgba(228, 231, 236, .8);
 }
+
 .input-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f1f5f9;
+  background: #f2f4f7;
   border-radius: 24px;
   padding: 4px 4px 4px 16px;
 }
+
 .msg-input {
   flex: 1;
   border: none;
   background: transparent;
   font-size: 15px;
   outline: none;
-  color: #1e293b;
+  color: var(--mobile-ink);
 }
+
 .msg-input::placeholder {
-  color: #94a3b8;
+  color: var(--mobile-faint);
 }
+
 .send-btn {
   padding: 8px 20px;
   border: none;
@@ -525,28 +521,41 @@ onUnmounted(() => {
   background: #cbd5e1;
   color: #fff;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 750;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all .2s;
   white-space: nowrap;
 }
+
 .send-btn.active {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
-}
-.send-btn:disabled {
-  opacity: 0.6;
+  background: linear-gradient(135deg, #3157ff, #08b6d8);
+  box-shadow: 0 4px 14px rgba(49, 87, 255, .3);
 }
 
-/* 归档/取消提示 */
+.send-btn:disabled {
+  opacity: .6;
+}
+
+/* ---- 归档/取消提示 ---- */
 .archived-bar {
-  background: rgba(248,250,252,0.95) !important;
+  background: rgba(248, 250, 252, .95) !important;
   border-top: 1px solid #e2e8f0 !important;
 }
+
 .archived-hint {
   text-align: center;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--mobile-muted);
   padding: 8px 0;
+}
+
+/* ---- 响应式居中 ---- */
+@media (min-width: 560px) {
+  .chat-input-bar {
+    left: 50%;
+    right: auto;
+    width: 430px;
+    transform: translateX(-50%);
+  }
 }
 </style>

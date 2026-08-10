@@ -15,137 +15,164 @@ async function load() {
 }
 
 const categoryIcons: Record<string, string> = {
+  '老板护航': '🛡️',
   '陪玩专区': '🎮',
   '监狱专区': '🔒',
   '趣味玩法': '🎯',
+  '特殊玩法': '⚡',
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <div class="page">
-    <van-nav-bar title="全部服务" left-arrow @click-left="$router.back()" fixed placeholder />
+  <main class="mobile-page no-tabbar">
+    <van-nav-bar title="全部服务" left-arrow @click-left="$router.back()" />
 
-    <!-- 加载中 -->
-    <div v-if="loading" class="flex justify-center py-20">
-      <van-loading size="24" color="#6366f1" />
+    <div v-if="loading" class="loading-card mobile-card">
+      <van-loading color="#3157ff" />
+      <span>正在加载服务</span>
     </div>
 
-    <!-- 服务列表 -->
-    <div v-else class="content">
-      <div v-for="s in services" :key="s.id" class="service-card">
-        <div class="service-header">
-          <span class="service-emoji">{{ categoryIcons[s.category] || '🎮' }}</span>
-          <div>
-            <div class="service-name">{{ s.name }}</div>
-            <div class="service-category">{{ s.category }}</div>
+    <template v-else-if="services.length">
+      <div class="service-list">
+        <article v-for="s in services" :key="s.id" class="service-card">
+          <div class="service-head">
+            <span class="service-emoji">{{ categoryIcons[s.category] || '🎮' }}</span>
+            <div class="service-info">
+              <strong class="service-name">{{ s.name }}</strong>
+              <span class="service-category">{{ s.category }}</span>
+            </div>
+            <div class="service-price">
+              <span class="price-num">¥{{ s.basePrice }}</span>
+              <span class="price-unit">/{{ s.priceUnit === 'hour' ? '小时' : '局' }}</span>
+            </div>
           </div>
-          <div class="service-price">
-            <span class="price-num">¥{{ s.basePrice }}</span>
-            <span class="price-unit">/{{ s.priceUnit === 'hour' ? '小时' : '局' }}</span>
+          <div v-if="s.guaranteeDesc || s.refundPolicy" class="service-body">
+            <p v-if="s.guaranteeDesc" class="service-guarantee">
+              <span class="guarantee-dot" />
+              {{ s.guaranteeDesc }}
+            </p>
+            <p v-if="s.refundPolicy" class="service-refund">
+              <span class="refund-label">退款规则</span> {{ s.refundPolicy }}
+            </p>
           </div>
-        </div>
-        <div class="service-body">
-          <div class="service-guarantee" v-if="s.guaranteeDesc">
-            <span class="guarantee-dot"></span>
-            {{ s.guaranteeDesc }}
-          </div>
-          <div class="service-refund" v-if="s.refundPolicy">
-            <span class="refund-label">退款规则：</span>{{ s.refundPolicy }}
-          </div>
-        </div>
+        </article>
       </div>
+    </template>
 
-      <div v-if="services.length === 0 && !loading" class="empty">
-        <span class="text-4xl mb-3">📋</span>
-        <div class="text-gray-400">暂无服务项目</div>
+    <div v-else class="empty-state">
+      <div>
+        <h3>暂无服务</h3>
+        <p>服务列表会自动同步后台。</p>
       </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f8fafc;
-}
-.content {
-  padding: 12px 16px 20px;
+.loading-card {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--mobile-muted);
+}
+
+.service-list {
+  display: grid;
   gap: 12px;
 }
+
 .service-card {
-  background: #fff;
+  border: 1px solid rgba(228, 231, 236, .95);
   border-radius: 18px;
-  padding: 18px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-  border: 1px solid #f1f5f9;
+  background: rgba(255, 255, 255, .92);
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, .05);
 }
-.service-header {
+
+.service-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
 }
+
 .service-emoji {
   font-size: 32px;
+  flex: 0 0 auto;
 }
+
+.service-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .service-name {
+  display: block;
+  color: var(--mobile-ink);
   font-size: 15px;
-  font-weight: 700;
-  color: #1e293b;
+  font-weight: 850;
 }
+
 .service-category {
-  font-size: 12px;
-  color: #94a3b8;
+  display: block;
   margin-top: 2px;
+  color: var(--mobile-faint);
+  font-size: 12px;
 }
+
 .service-price {
-  margin-left: auto;
+  flex: 0 0 auto;
   text-align: right;
 }
+
 .price-num {
+  display: block;
+  color: var(--mobile-brand);
   font-size: 20px;
-  font-weight: 800;
-  color: #6366f1;
+  font-weight: 950;
 }
+
 .price-unit {
-  font-size: 12px;
-  color: #94a3b8;
+  display: block;
+  margin-top: 1px;
+  color: var(--mobile-faint);
+  font-size: 11px;
 }
+
 .service-body {
-  border-top: 1px solid #f1f5f9;
+  margin-top: 12px;
   padding-top: 12px;
+  border-top: 1px solid var(--mobile-line);
 }
+
 .service-guarantee {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin: 0 0 6px;
+  color: var(--mobile-muted);
   font-size: 13px;
-  color: #64748b;
-  margin-bottom: 6px;
+  line-height: 1.5;
 }
+
 .guarantee-dot {
   width: 6px;
   height: 6px;
+  flex: 0 0 auto;
   border-radius: 50%;
-  background: #10b981;
-  flex-shrink: 0;
+  background: var(--mobile-success);
 }
+
 .service-refund {
+  margin: 0;
+  color: var(--mobile-faint);
   font-size: 12px;
-  color: #94a3b8;
 }
+
 .refund-label {
-  color: #64748b;
-  font-weight: 500;
-}
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 0;
+  color: var(--mobile-muted);
+  font-weight: 650;
 }
 </style>

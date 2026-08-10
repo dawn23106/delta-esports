@@ -90,6 +90,14 @@ class AuthControllerTest {
     }
 
     @Test
+    void shouldRejectRefreshTokenAsApiAccessToken() throws Exception {
+        String refreshToken = jwtUtils.generateRefreshToken(2L);
+        mockMvc.perform(get("/api/orders/my")
+                        .header("Authorization", "Bearer " + refreshToken))
+                .andExpect(status().is(401));
+    }
+
+    @Test
     void shouldAccessPublicEndpointsWithoutToken() throws Exception {
         mockMvc.perform(get("/api/services"))
                 .andExpect(status().isOk())
@@ -108,5 +116,31 @@ class AuthControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void shouldRejectServiceMutationForNonAdmin() throws Exception {
+        String token = jwtUtils.generateToken(2L, "boss");
+        String body = "{\"name\":\"非法服务\",\"category\":\"陪玩专区\",\"basePrice\":1}";
+
+        mockMvc.perform(post("/api/services")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    void shouldNotExposeBoosterPhoneOrCredentials() throws Exception {
+        String token = jwtUtils.generateToken(2L, "boss");
+
+        mockMvc.perform(get("/api/users/boosters")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].password").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].openId").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].phone").doesNotExist());
     }
 }

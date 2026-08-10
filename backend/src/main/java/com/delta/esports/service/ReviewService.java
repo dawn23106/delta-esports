@@ -13,6 +13,7 @@ import com.delta.esports.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,6 +30,9 @@ public class ReviewService {
 
     @Transactional
     public Review createReview(Long bossId, Long orderId, Integer rating, String content, String tags) {
+        if (rating == null || rating < 1 || rating > 5) {
+            throw new BusinessException(400, "评分必须在1到5之间");
+        }
         Order order = orderMapper.selectById(orderId);
         if (order == null) throw new BusinessException("订单不存在");
         if (!order.getBossId().equals(bossId)) throw new BusinessException("无权评价");
@@ -42,10 +46,14 @@ public class ReviewService {
         review.setOrderId(orderId);
         review.setBossId(bossId);
         review.setBoosterId(order.getBoosterId());
-        review.setRating(rating != null ? rating : 5);
+        review.setRating(rating);
         review.setContent(content);
         review.setTags(tags);
-        reviewMapper.insert(review);
+        try {
+            reviewMapper.insert(review);
+        } catch (DuplicateKeyException duplicate) {
+            throw new BusinessException(409, "该订单已评价");
+        }
 
         updateBoosterRating(order.getBoosterId());
 
@@ -59,20 +67,24 @@ public class ReviewService {
         return PageResult.of(result);
     }
 
-    private void updateBoosterRating(Long boosterId) {
-        User booster = userMapper.selectById(boosterId);
-        if (booster == null) return;
+    public PageResult<Review> getBossReviews(Long bossId, int page, int size) {
+        LambdaQueryWrapper<Review> qw = new LambdaQueryWrapper<>();
+        qw.eq(Review::getBossId, bossId).orderByDesc(Review::getCreatedAt);
+        return PageResult.of(reviewMapper.selectPage(new Page<>(page, size), qw));
+    }
 
+    private void updateBoosterRating(Long boosterId) {
         List<Review> reviews = reviewMapper.selectList(
                 new LambdaQueryWrapper<Review>().eq(Review::getBoosterId, boosterId));
-        if (!reviews.isEmpty()) {
-            double avgRating = reviews.stream()
-                    .mapToInt(Review::getRating)
-                    .average()
-                    .orElse(5.0);
-            booster.setRating(BigDecimal.valueOf(Math.round(avgRating * 100.0) / 100.0));
-        }
-
-        userMapper.updateById(booster);
+        if (reviews.isEmpty()) return;
+        double avgRating = reviews.stream()
+                .mapToInt(Review::getRating)
+                .average()
+                .orElse(5.0);
+        // 只更新评分字段，避免把并发到账后的余额用旧对象覆盖掉。
+        User update = new User();
+        update.setId(boosterId);
+        update.setRating(BigDecimal.valueOf(Math.round(avgRating * 100.0) / 100.0));
+        userMapper.updateById(update);
     }
 }

@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { closeToast, showLoadingToast, showToast } from 'vant'
 import request from '../../api/request'
 import { createOrder } from '../../api/orders'
-import { showToast, showLoadingToast, closeToast } from 'vant'
 import { useAuthGuard } from '../../composables/useAuthGuard'
+import MobileTabbar from '../../components/MobileTabbar.vue'
 
-const active = ref(1)
 const filter = ref('')
 const boosters = ref<any[]>([])
+const services = ref<any[]>([])
 const showOrder = ref(false)
 const showGift = ref(false)
 const selectedBooster = ref<any>(null)
-const services = ref<any[]>([])
 const selectedServiceId = ref<number>(0)
 const giftAmount = ref('')
 const giftName = ref('')
 const giftMessage = ref('')
+const loading = ref(false)
+const { requireLogin } = useAuthGuard()
 
 const filters = [
   { label: '全部', value: '' },
@@ -23,288 +25,366 @@ const filters = [
   { label: '技术陪', value: 'tech' },
   { label: '顶尖陪', value: 'top' },
 ]
-const levelLabel: Record<string, string> = { entertainment: '娱乐陪', tech: '技术陪', top: '顶尖陪' }
-const filtered = ref<any[]>([])
 
-function doFilter() {
-  filtered.value = filter.value
-    ? boosters.value.filter((b: any) => b.boosterLevel === filter.value)
-    : boosters.value
+const levelLabel: Record<string, string> = {
+  entertainment: '娱乐陪',
+  tech: '技术陪',
+  top: '顶尖陪',
 }
+
+const filtered = computed(() => {
+  const online = boosters.value.filter((booster) => booster.boosterStatus !== 'offline')
+  return filter.value ? online.filter((booster) => booster.boosterLevel === filter.value) : online
+})
+
 async function load() {
+  loading.value = true
   try {
-    const r: any = await request.get('/users/boosters', { params: { page: 1, size: 50 } })
-    boosters.value = (r.records || []).filter((b: any) => b.boosterStatus !== 'offline')
-    doFilter()
-  } catch { }
-  try { const r: any = await request.get('/services'); services.value = r || [] } catch { }
+    const result: any = await request.get('/users/boosters', { params: { page: 1, size: 50 } })
+    boosters.value = result.records || []
+  } finally {
+    loading.value = false
+  }
+
+  try {
+    const result: any = await request.get('/services')
+    services.value = Array.isArray(result) ? result : []
+  } catch {
+    services.value = []
+  }
 }
 
-const { requireLogin } = useAuthGuard()
-async function pick(b: any) { selectedBooster.value = b; showOrder.value = true }
-async function gift(b: any) { selectedBooster.value = b; showGift.value = true }
+function pick(booster: any) {
+  selectedBooster.value = booster
+  selectedServiceId.value = services.value[0]?.id || 0
+  showOrder.value = true
+}
+
+function gift(booster: any) {
+  selectedBooster.value = booster
+  giftName.value = ''
+  giftAmount.value = ''
+  giftMessage.value = ''
+  showGift.value = true
+}
+
 async function submitOrder() {
+  if (!selectedBooster.value || !selectedServiceId.value) return
   if (!await requireLogin('下单')) return
-  showLoadingToast('下单中...')
+  showLoadingToast({ message: '正在下单', duration: 0 })
   try {
     await createOrder({ serviceId: selectedServiceId.value, boosterId: selectedBooster.value.id })
-    closeToast(); showToast('下单成功！'); showOrder.value = false
-  } catch (e: any) { closeToast(); showToast(e?.response?.data?.message || '失败') }
+    closeToast()
+    showToast({ message: '下单成功', icon: 'success' })
+    showOrder.value = false
+  } catch (error: any) {
+    closeToast()
+    showToast(error?.response?.data?.message || '下单失败')
+  }
 }
+
 async function sendGift() {
+  if (!selectedBooster.value) return
   if (!await requireLogin('送礼物')) return
-  if (!giftAmount.value || !giftName.value) { showToast('请填写礼物信息'); return }
+  if (!giftName.value || !giftAmount.value) {
+    showToast('请填写礼物名称和金额')
+    return
+  }
+
   try {
     await request.post('/gifts', null, {
-      params: { boosterId: selectedBooster.value.id, giftName: giftName.value, amount: Number(giftAmount.value), message: giftMessage.value }
+      params: {
+        boosterId: selectedBooster.value.id,
+        giftName: giftName.value,
+        amount: Number(giftAmount.value),
+        message: giftMessage.value,
+      },
     })
-    showToast('已送出！🎁'); showGift.value = false
-  } catch (e: any) { showToast(e?.response?.data?.message || '失败') }
+    showToast({ message: '礼物已送出', icon: 'success' })
+    showGift.value = false
+  } catch (error: any) {
+    showToast(error?.response?.data?.message || '送礼失败')
+  }
+}
+
+function avatarOf(booster: any) {
+  return booster.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <div class="page">
-    <div class="filter-bar">
-      <span
-        v-for="f in filters" :key="f.value"
-        :class="['filter-chip', { active: filter === f.value }]"
-        @click="filter = f.value; doFilter()"
-      >{{ f.label }}</span>
+  <main class="mobile-page">
+    <section class="mobile-hero choose-hero">
+      <div class="eyebrow">Online Squad</div>
+      <h1 class="page-title">选择陪玩</h1>
+      <p class="page-subtitle">筛选在线陪玩，指定下单或先送个礼物打招呼。</p>
+      <div class="metric-grid hero-metrics">
+        <div class="metric"><strong>{{ filtered.length }}</strong><span>在线</span></div>
+        <div class="metric"><strong>{{ boosters.length }}</strong><span>总人数</span></div>
+        <div class="metric"><strong>4.9</strong><span>均分</span></div>
+      </div>
+    </section>
+
+    <div class="pill-row filter-row">
+      <button v-for="item in filters" :key="item.value" type="button" class="pill" :class="{ active: filter === item.value }" @click="filter = item.value">
+        {{ item.label }}
+      </button>
     </div>
 
-    <div class="list" v-if="filtered.length">
-      <div v-for="b in filtered" :key="b.id" class="booster-card">
-        <div class="b-left">
-          <div class="avatar-wrap">
-            <van-image round width="48" height="48" :src="b.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
-            <span class="dot" :class="{ on: b.boosterStatus === 'idle' }"></span>
+    <div v-if="loading" class="mobile-card loading-card">
+      <van-loading color="#3157ff" />
+      <span>正在匹配在线陪玩</span>
+    </div>
+
+    <section v-else-if="filtered.length" class="booster-list">
+      <article v-for="booster in filtered" :key="booster.id" class="booster-card">
+        <div class="avatar">
+          <van-image round width="56" height="56" :src="avatarOf(booster)" />
+          <span :class="['status-dot', { idle: booster.boosterStatus === 'idle' }]" />
+        </div>
+        <div class="booster-main">
+          <div class="booster-top">
+            <h2>{{ booster.nickname || '未命名陪玩' }}</h2>
+            <span>{{ levelLabel[booster.boosterLevel] || '陪玩' }}</span>
           </div>
+          <div class="booster-meta">
+            <span>评分 {{ booster.rating || '5.0' }}</span>
+            <span>{{ booster.orderCount || 0 }} 单</span>
+            <span :class="{ idle: booster.boosterStatus === 'idle' }">{{ booster.boosterStatus === 'idle' ? '空闲' : '忙碌' }}</span>
+          </div>
+          <div class="booster-actions">
+            <van-button round size="small" color="linear-gradient(135deg, #3157ff, #08b6d8)" :disabled="booster.boosterStatus !== 'idle'" @click="pick(booster)">
+              指定下单
+            </van-button>
+            <van-button round size="small" plain color="#f79009" @click="gift(booster)">送礼物</van-button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <div v-else class="empty-state">
+      <div>
+        <h3>暂无在线陪玩</h3>
+        <p>换个筛选条件，或稍后再试。</p>
+      </div>
+    </div>
+
+    <van-action-sheet v-model:show="showOrder" title="指定陪玩下单" round>
+      <div v-if="selectedBooster" class="sheet">
+        <div class="sheet-profile">
+          <van-image round width="42" height="42" :src="avatarOf(selectedBooster)" />
           <div>
-            <div class="b-name">
-              {{ b.nickname }}
-              <van-tag :type="b.boosterLevel === 'top' ? 'danger' : b.boosterLevel === 'tech' ? 'primary' : 'default'" round size="medium">
-                {{ levelLabel[b.boosterLevel] || b.boosterLevel }}
-              </van-tag>
-            </div>
-            <div class="b-meta">
-              <span>⭐ {{ b.rating || '5.0' }}</span>
-              <span>{{ b.orderCount || 0 }}单</span>
-              <span :class="b.boosterStatus === 'idle' ? 'text-green' : 'text-orange'">● {{ b.boosterStatus === 'idle' ? '空闲' : '忙碌' }}</span>
-            </div>
+            <strong>{{ selectedBooster.nickname }}</strong>
+            <span>{{ levelLabel[selectedBooster.boosterLevel] || '陪玩' }}</span>
           </div>
         </div>
-        <div class="b-actions">
-          <van-button size="small" round type="primary" class="btn" :disabled="b.boosterStatus !== 'idle'" @click="pick(b)">下单</van-button>
-          <van-button size="small" round plain hairline class="btn-gift" @click="gift(b)">送礼物</van-button>
-        </div>
-      </div>
-    </div>
 
-    <div v-else class="empty">
-      <span class="text-3xl mb-2">🧑‍🤝‍🧑</span>
-      <div class="text-gray-400 text-sm">暂无陪陪在线</div>
-    </div>
-
-    <!-- 下单弹窗 -->
-    <van-action-sheet v-model:show="showOrder" title="选择服务" :close-on-click-overlay="true" :style="{ borderRadius:'20px 20px 0 0' }">
-      <div class="sheet" v-if="selectedBooster">
-        <div class="sheet-hero">
-          <van-image round width="36" height="36" src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" />
-          <span class="sheet-hero-text">{{ selectedBooster.nickname }} · 指定陪陪</span>
-        </div>
         <van-radio-group v-model="selectedServiceId">
-          <div v-for="s in services" :key="s.id" class="svc-row" @click="selectedServiceId = s.id">
-            <div>
-              <div class="svc-name">{{ s.name }}</div>
-              <div class="svc-price">¥{{ s.basePrice }}</div>
-            </div>
-            <van-radio :name="s.id" checked-color="#6366f1" />
-          </div>
+          <button v-for="service in services" :key="service.id" type="button" class="service-row" @click="selectedServiceId = service.id">
+            <span>
+              <strong>{{ service.name }}</strong>
+              <small>￥{{ service.basePrice }}</small>
+            </span>
+            <van-radio :name="service.id" checked-color="#3157ff" />
+          </button>
         </van-radio-group>
-        <van-button round block type="primary" class="sheet-btn" :disabled="!selectedServiceId" @click="submitOrder" color="linear-gradient(135deg, #6366f1, #8b5cf6)">确认下单</van-button>
+
+        <van-button block round type="primary" size="large" :disabled="!selectedServiceId" color="linear-gradient(135deg, #3157ff, #08b6d8)" @click="submitOrder">
+          确认下单
+        </van-button>
       </div>
     </van-action-sheet>
 
-    <!-- 送礼弹窗 -->
-    <van-action-sheet v-model:show="showGift" title="送礼物" :close-on-click-overlay="true" :style="{ borderRadius:'20px 20px 0 0' }">
-      <div class="sheet" v-if="selectedBooster">
-        <div class="sheet-hero"><span>送给 <b>{{ selectedBooster.nickname }}</b></span></div>
-        <van-field v-model="giftName" label="礼物" placeholder="鲜花/跑车/火箭..." :border="true" />
-        <van-field v-model="giftAmount" label="金额" type="number" placeholder="¥" :border="true" />
-        <van-field v-model="giftMessage" label="留言" placeholder="说点什么..." :border="true" />
-        <van-button round block type="warning" class="sheet-btn" @click="sendGift" color="linear-gradient(135deg, #f59e0b, #f97316)">确认送出</van-button>
+    <van-action-sheet v-model:show="showGift" title="送礼物" round>
+      <div v-if="selectedBooster" class="sheet">
+        <div class="sheet-profile">
+          <van-image round width="42" height="42" :src="avatarOf(selectedBooster)" />
+          <div>
+            <strong>送给 {{ selectedBooster.nickname }}</strong>
+            <span>礼物会记录在你的账户中</span>
+          </div>
+        </div>
+        <van-field v-model="giftName" label="礼物" placeholder="鲜花、跑车、火箭..." />
+        <van-field v-model="giftAmount" label="金额" type="number" placeholder="请输入金额" />
+        <van-field v-model="giftMessage" label="留言" placeholder="写一句鼓励的话" />
+        <van-button block round type="primary" size="large" color="linear-gradient(135deg, #f79009, #f04438)" @click="sendGift">
+          确认送出
+        </van-button>
       </div>
     </van-action-sheet>
 
-    <van-tabbar v-model="active" route :border="false" active-color="#6366f1" inactive-color="#94a3b8" safe-area-inset-bottom class="tabbar">
-      <van-tabbar-item icon="home-o" to="/boss/home">首页</van-tabbar-item>
-      <van-tabbar-item icon="friends-o" to="/boss/choose">选陪陪</van-tabbar-item>
-      <van-tabbar-item icon="chat-o" to="/boss/messages">消息</van-tabbar-item>
-      <van-tabbar-item icon="user-o" to="/boss/profile">我的</van-tabbar-item>
-    </van-tabbar>
-  </div>
+    <MobileTabbar role="boss" />
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #fff 50%, #f8fafc 100%);
-  padding-bottom: 60px;
+.choose-hero {
+  background-image:
+    linear-gradient(135deg, rgba(16,19,35,.74), rgba(8,182,216,.54)),
+    url('https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1000&h=900&fit=crop');
 }
-.filter-bar {
+
+.hero-metrics,
+.filter-row {
+  margin-top: 18px;
+}
+
+.loading-card {
   display: flex;
-  gap: 8px;
-  padding: 16px;
-  overflow-x: auto;
-}
-.filter-bar::-webkit-scrollbar { display: none; }
-.filter-chip {
-  padding: 8px 18px;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  background: #fff;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.filter-chip.active {
-  background: #6366f1;
-  color: #fff;
-  border-color: #6366f1;
-  box-shadow: 0 4px 12px rgba(99,102,241,0.25);
-}
-.list {
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
+  color: var(--mobile-muted);
 }
+
+.booster-list {
+  display: grid;
+  gap: 12px;
+}
+
 .booster-card {
-  background: #fff;
-  border-radius: 18px;
-  padding: 16px;
+  display: flex;
+  gap: 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(228,231,236,.95);
+  background: rgba(255,255,255,.9);
+  padding: 14px;
+  box-shadow: 0 10px 26px rgba(16,24,40,.06);
+}
+
+.avatar {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.status-dot {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--mobile-warning);
+}
+
+.status-dot.idle {
+  background: var(--mobile-success);
+}
+
+.booster-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.booster-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-  border: 1px solid #f1f5f9;
+  gap: 8px;
 }
-.b-left {
+
+.booster-top h2 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--mobile-ink);
+  font-size: 16px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.booster-top span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #eef4ff;
+  color: var(--mobile-brand);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.booster-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--mobile-muted);
+  font-size: 12px;
+}
+
+.booster-meta .idle {
+  color: var(--mobile-success);
+  font-weight: 800;
+}
+
+.booster-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sheet {
+  padding: 0 16px 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.sheet-profile {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
-  min-width: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eef4ff, #edfdfa);
+  padding: 14px;
+  border: 1px solid #dbe7ff;
 }
-.avatar-wrap {
-  position: relative;
-  flex-shrink: 0;
+
+.sheet-profile strong,
+.sheet-profile span {
+  display: block;
 }
-.dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-}
-.dot.on { background: #10b981; }
-.dot:not(.on) { background: #f59e0b; }
-.b-name {
-  font-weight: 600;
-  color: #1e293b;
+
+.sheet-profile strong {
+  color: var(--mobile-ink);
   font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
-.b-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+
+.sheet-profile span {
+  margin-top: 2px;
+  color: var(--mobile-muted);
   font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
 }
-.text-green { color: #10b981 !important; }
-.text-orange { color: #f59e0b !important; }
-.b-actions {
+
+.service-row {
+  width: 100%;
+  border: 1px solid var(--mobile-line);
+  border-radius: 15px;
+  background: #fff;
+  margin-bottom: 8px;
+  padding: 13px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.btn {
-  height: 30px !important;
-  font-size: 12px !important;
-  padding: 0 14px !important;
-}
-.btn-gift {
-  height: 30px !important;
-  font-size: 12px !important;
-  padding: 0 14px !important;
-  border-color: #fde68a !important;
-  color: #f59e0b !important;
-}
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80px 0;
-}
-.sheet {
-  padding: 0 20px 30px;
-}
-.sheet-hero {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  background: linear-gradient(135deg, #eef2ff, #faf5ff);
-  border-radius: 14px;
-  border: 1px solid #e0e7ff;
-}
-.sheet-hero-text {
-  font-size: 14px;
-  color: #1e293b;
-}
-.svc-row {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-radius: 12px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  background: #f8fafc;
+  align-items: center;
+  text-align: left;
 }
-.svc-name {
+
+.service-row strong,
+.service-row small {
+  display: block;
+}
+
+.service-row strong {
+  color: var(--mobile-ink);
   font-size: 14px;
-  font-weight: 500;
-  color: #334155;
 }
-.svc-price {
-  font-size: 12px;
-  color: #94a3b8;
-}
-.sheet-btn {
-  height: 48px !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  border-radius: 16px !important;
-  margin-top: 16px !important;
-}
-.tabbar {
-  background: rgba(255,255,255,0.9) !important;
-  backdrop-filter: blur(20px) !important;
-  border-top: 1px solid #f1f5f9 !important;
+
+.service-row small {
+  margin-top: 3px;
+  color: var(--mobile-brand);
+  font-size: 13px;
+  font-weight: 850;
 }
 </style>

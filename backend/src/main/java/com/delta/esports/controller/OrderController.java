@@ -2,6 +2,7 @@ package com.delta.esports.controller;
 
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
 import com.delta.esports.common.Result;
+import com.delta.esports.config.RequireRole;
 import com.delta.esports.dto.CompleteOrderRequest;
 import com.delta.esports.dto.CreateOrderRequest;
 import com.delta.esports.entity.Order;
@@ -46,43 +47,49 @@ public class OrderController {
 
     @Operation(summary = "订单详情")
     @GetMapping("/{id}")
-    public Result<?> detail(@PathVariable Long id) {
-        Order order = orderService.getDetail(id);
+    public Result<?> detail(HttpServletRequest request, @PathVariable Long id) {
+        Order order = orderService.getDetail(id, getUserId(request), (String) request.getAttribute("role"));
         if (order == null) return Result.error("订单不存在");
         return Result.success(order);
     }
 
     @Operation(summary = "创建订单")
+    @RequireRole("boss")
     @PostMapping
     public Result<?> create(HttpServletRequest request, @Valid @RequestBody CreateOrderRequest req) {
         return Result.success(orderService.createOrder(getUserId(request), req));
     }
 
     @Operation(summary = "陪陪接单")
+    @RequireRole("booster")
     @PostMapping("/{id}/claim")
     public Result<?> claim(HttpServletRequest request, @PathVariable Long id) {
         return Result.success(orderService.claimOrder(getUserId(request), id));
     }
 
     @Operation(summary = "开始服务")
+    @RequireRole("booster")
     @PostMapping("/{id}/start")
     public Result<?> start(HttpServletRequest request, @PathVariable Long id) {
         return Result.success(orderService.startOrder(getUserId(request), id));
     }
 
     @Operation(summary = "陪陪提交成果")
+    @RequireRole("booster")
     @PostMapping("/submit")
     public Result<?> submit(HttpServletRequest request, @Valid @RequestBody CompleteOrderRequest req) {
         return Result.success(orderService.submitOrder(getUserId(request), req));
     }
 
     @Operation(summary = "老板确认完成")
+    @RequireRole("boss")
     @PostMapping("/{id}/confirm")
     public Result<?> confirm(HttpServletRequest request, @PathVariable Long id) {
         return Result.success(orderService.bossConfirmOrder(getUserId(request), id));
     }
 
     @Operation(summary = "取消订单")
+    @RequireRole("boss")
     @PostMapping("/{id}/cancel")
     public Result<?> cancel(HttpServletRequest request, @PathVariable Long id) {
         return Result.success(orderService.cancelOrder(getUserId(request), id));

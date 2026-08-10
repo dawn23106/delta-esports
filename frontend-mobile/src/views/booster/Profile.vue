@@ -1,36 +1,45 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useAuthStore } from '../../store/auth'
+import { onMounted, ref } from 'vue'
+import { showConfirmDialog, showToast } from 'vant'
 import request from '../../api/request'
 import { getMyOrders } from '../../api/orders'
-import { showToast, showDialog } from 'vant'
+import { useAuthStore } from '../../store/auth'
+import MobileTabbar from '../../components/MobileTabbar.vue'
 
 const auth = useAuthStore()
-const active = ref(2)
-
 const user = ref<any>({ nickname: '', boosterLevel: '', boosterStatus: 'offline', rating: 5, orderCount: 0 })
 const totalEarned = ref(0)
 const pendingSettlement = ref(0)
 const completedCount = ref(0)
 const completionRate = ref(0)
-const levelLabel: Record<string, string> = { entertainment: '娱乐陪', tech: '技术陪', top: '顶尖陪' }
+
+const levelLabel: Record<string, string> = {
+  entertainment: '娱乐陪',
+  tech: '技术陪',
+  top: '顶尖陪',
+}
 
 async function loadData() {
   try {
-    const r1: any = await request.get('/users/me')
-    user.value = r1 || user.value
+    const profile: any = await request.get('/users/me')
+    user.value = profile || user.value
     totalEarned.value = user.value.totalEarned || 0
-  } catch { }
+  } catch {
+    user.value.nickname = auth.nickname
+  }
+
   try {
-    const r2: any = await getMyOrders(1, 100)
-    const orders = r2.records || []
-    completedCount.value = orders.filter((o: any) => o.status === 'settled').length
-    const total = orders.filter((o: any) => o.status !== 'cancelled').length
-    completionRate.value = total > 0 ? Math.round(completedCount.value / total * 100) : 0
+    const result: any = await getMyOrders(1, 100)
+    const orders = result.records || []
+    completedCount.value = orders.filter((order: any) => order.status === 'settled').length
+    const validOrders = orders.filter((order: any) => order.status !== 'cancelled').length
+    completionRate.value = validOrders > 0 ? Math.round(completedCount.value / validOrders * 100) : 0
     pendingSettlement.value = orders
-      .filter((o: any) => o.status === 'done' || o.status === 'completed')
-      .reduce((sum: number, o: any) => sum + (o.amount || 0), 0)
-  } catch { }
+      .filter((order: any) => ['done', 'completed'].includes(order.status))
+      .reduce((sum: number, order: any) => sum + (order.amount || 0), 0)
+  } catch {
+    completedCount.value = 0
+  }
 }
 
 async function toggleStatus() {
@@ -38,347 +47,233 @@ async function toggleStatus() {
   try {
     await request.put('/users/booster/status', null, { params: { status: newStatus } })
     user.value.boosterStatus = newStatus
-    showToast(newStatus === 'idle' ? '已切换为空闲，可以接单啦！' : '已切换为忙碌')
-  } catch (e: any) { showToast(e?.response?.data?.message || '切换失败') }
+    showToast(newStatus === 'idle' ? '已切换为空闲，可接单' : '已切换为忙碌')
+  } catch (error: any) {
+    showToast(error?.response?.data?.message || '切换失败')
+  }
 }
 
 async function handleLogout() {
   try {
-    await showDialog({
-      title: '退出登录',
-      message: '确定要退出当前账号吗？',
-      confirmButtonColor: '#ef4444',
-      confirmButtonText: '退出',
-      cancelButtonText: '取消',
-      showCancelButton: true,
-    })
+    await showConfirmDialog({ title: '退出登录', message: '确定要退出当前账号吗？', confirmButtonText: '退出', confirmButtonColor: '#f04438' })
     auth.logout()
-    // router will redirect via guard
     window.location.href = '/login'
-  } catch { }
+  } catch {
+    // user cancelled
+  }
 }
 
 onMounted(loadData)
 </script>
 
 <template>
-  <div class="page">
-    <!-- 头部 -->
-    <div class="header">
-      <div class="header-deco"></div>
-      <div class="header-content">
-        <div class="user-row">
-          <div class="avatar-wrap">
-            <van-image round width="64" height="64" src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg" class="avatar" />
-            <div class="online-dot" :class="{ on: user.boosterStatus === 'idle' }"></div>
-          </div>
-          <div class="user-info">
-            <div class="nickname">{{ user.nickname || auth.nickname }}</div>
-            <div class="level-badge">{{ levelLabel[user.boosterLevel] || user.boosterLevel }}</div>
-          </div>
-          <div class="toggle-area" @click="toggleStatus">
-            <div class="toggle-track" :class="{ active: user.boosterStatus === 'idle' }">
-              <div class="toggle-thumb"></div>
-            </div>
-            <div class="toggle-label">{{ user.boosterStatus === 'idle' ? '接单中' : '休息中' }}</div>
-          </div>
+  <main class="mobile-page">
+    <section class="mobile-hero booster-hero">
+      <div class="profile-row">
+        <div class="avatar-wrap">
+          <van-image round width="66" height="66" :src="user.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+          <span :class="['online-dot', { on: user.boosterStatus === 'idle' }]" />
         </div>
-
-        <!-- 收入三栏 -->
-        <div class="income-row">
-          <div class="income-item">
-            <div class="income-val">¥{{ totalEarned }}</div>
-            <div class="income-label">累计收入</div>
-          </div>
-          <div class="income-divider"></div>
-          <div class="income-item">
-            <div class="income-val pending">¥{{ pendingSettlement }}</div>
-            <div class="income-label">待结算</div>
-          </div>
-          <div class="income-divider"></div>
-          <div class="income-item">
-            <div class="income-val avail">¥{{ totalEarned - pendingSettlement }}</div>
-            <div class="income-label">可提现</div>
-          </div>
+        <div class="profile-main">
+          <h1>{{ user.nickname || auth.nickname || '陪玩' }}</h1>
+          <p>{{ levelLabel[user.boosterLevel] || '陪玩' }} · {{ user.boosterStatus === 'idle' ? '空闲中' : '忙碌中' }}</p>
         </div>
+        <button type="button" class="status-toggle" :class="{ on: user.boosterStatus === 'idle' }" @click="toggleStatus">
+          <span />
+        </button>
       </div>
-    </div>
+      <div class="metric-grid hero-metrics">
+        <div class="metric"><strong>￥{{ totalEarned }}</strong><span>累计收入</span></div>
+        <div class="metric"><strong>￥{{ pendingSettlement }}</strong><span>待结算</span></div>
+        <div class="metric"><strong>￥{{ totalEarned - pendingSettlement }}</strong><span>可提现</span></div>
+      </div>
+    </section>
 
-    <!-- 数据统计 -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#eef2ff">📋</div>
-        <div class="stat-num">{{ user.orderCount || 0 }}</div>
-        <div class="stat-label">总接单</div>
+    <section class="stats-grid">
+      <div class="mobile-card stat-card">
+        <van-icon name="orders-o" />
+        <strong>{{ user.orderCount || 0 }}</strong>
+        <span>总接单</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#ecfdf5">✅</div>
-        <div class="stat-num">{{ completionRate }}%</div>
-        <div class="stat-label">完成率</div>
+      <div class="mobile-card stat-card">
+        <van-icon name="passed" />
+        <strong>{{ completionRate }}%</strong>
+        <span>完成率</span>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#fffbeb">⭐</div>
-        <div class="stat-num">{{ user.rating || '5.0' }}</div>
-        <div class="stat-label">评分</div>
+      <div class="mobile-card stat-card">
+        <van-icon name="star-o" />
+        <strong>{{ user.rating || '5.0' }}</strong>
+        <span>评分</span>
       </div>
-    </div>
+    </section>
 
-    <!-- 菜单 -->
-    <div class="menu-section">
-      <div class="menu-item" @click="$router.push('/booster/messages')">
-        <span class="menu-icon">💬</span>
-        <span class="menu-label">我的消息</span>
-        <span class="menu-arrow">›</span>
-      </div>
-      <div class="menu-item">
-        <span class="menu-icon">⚙️</span>
-        <span class="menu-label">设置</span>
-        <span class="menu-arrow">›</span>
-      </div>
-      <div class="menu-item logout" @click="handleLogout">
-        <span class="menu-icon">🚪</span>
-        <span class="menu-label">退出登录</span>
-        <span class="menu-arrow">›</span>
-      </div>
-    </div>
+    <section class="menu">
+      <button type="button" @click="$router.push('/booster/messages')">
+        <van-icon name="chat-o" />
+        <span>我的消息</span>
+        <van-icon name="arrow" />
+      </button>
+      <button type="button">
+        <van-icon name="setting-o" />
+        <span>设置</span>
+        <van-icon name="arrow" />
+      </button>
+      <button type="button" class="danger" @click="handleLogout">
+        <van-icon name="revoke" />
+        <span>退出登录</span>
+        <van-icon name="arrow" />
+      </button>
+    </section>
 
-    <van-tabbar v-model="active" route :border="false" active-color="#6366f1" inactive-color="#94a3b8" safe-area-inset-bottom class="tabbar">
-      <van-tabbar-item icon="orders-o" to="/booster/pool">订单池</van-tabbar-item>
-      <van-tabbar-item icon="logistics" to="/booster/orders">进行中</van-tabbar-item>
-      <van-tabbar-item icon="user-o" to="/booster/profile">我的</van-tabbar-item>
-    </van-tabbar>
-  </div>
+    <MobileTabbar role="booster" />
+  </main>
 </template>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  background: #f8fafc;
-  padding-bottom: 60px;
+.booster-hero {
+  background-image:
+    linear-gradient(135deg, rgba(16,19,35,.76), rgba(18,183,106,.42)),
+    url('https://images.unsplash.com/photo-1511882150382-421056c89033?w=1000&h=900&fit=crop');
 }
 
-/* 头部 */
-.header {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 40%, #a78bfa 100%);
-  padding: 32px 20px 28px;
-  position: relative;
-  overflow: hidden;
-}
-.header-deco {
-  position: absolute;
-  top: -40px;
-  right: -20px;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.06);
-}
-.header-content {
-  position: relative;
-  z-index: 1;
-}
-
-/* 用户行 */
-.user-row {
+.profile-row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 24px;
+  gap: 13px;
 }
+
 .avatar-wrap {
   position: relative;
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
-.avatar {
-  border: 3px solid rgba(255,255,255,0.3);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
+
 .online-dot {
   position: absolute;
-  bottom: 2px;
   right: 2px;
+  bottom: 2px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #ef4444;
   border: 2px solid #fff;
+  background: var(--mobile-warning);
 }
+
 .online-dot.on {
-  background: #10b981;
+  background: var(--mobile-success);
 }
-.user-info {
+
+.profile-main {
   flex: 1;
+  min-width: 0;
 }
-.nickname {
-  font-size: 20px;
-  font-weight: 700;
-  color: #fff;
+
+.profile-main h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 21px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.level-badge {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 2px 12px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.2);
-  backdrop-filter: blur(8px);
-  font-size: 12px;
-  color: #fff;
-  font-weight: 500;
+
+.profile-main p {
+  margin: 5px 0 0;
+  color: rgba(255,255,255,.72);
+  font-size: 13px;
 }
-.toggle-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-.toggle-track {
+
+.status-toggle {
   width: 48px;
   height: 28px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.25);
-  position: relative;
-  transition: background 0.3s;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 999px;
+  background: rgba(255,255,255,.2);
+  padding: 3px;
 }
-.toggle-track.active {
-  background: #10b981;
-}
-.toggle-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
+
+.status-toggle span {
+  display: block;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-  transition: transform 0.3s;
-}
-.toggle-track.active .toggle-thumb {
-  transform: translateX(20px);
-}
-.toggle-label {
-  font-size: 11px;
-  color: rgba(255,255,255,0.7);
+  transition: transform .2s;
 }
 
-/* 收入 */
-.income-row {
-  display: flex;
-  background: rgba(255,255,255,0.12);
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  padding: 16px 8px;
-}
-.income-item {
-  flex: 1;
-  text-align: center;
-}
-.income-val {
-  font-size: 18px;
-  font-weight: 800;
-  color: #fff;
-}
-.income-val.pending {
-  color: #fde68a;
-}
-.income-val.avail {
-  color: #a7f3d0;
-}
-.income-label {
-  font-size: 11px;
-  color: rgba(255,255,255,0.6);
-  margin-top: 2px;
-}
-.income-divider {
-  width: 1px;
-  background: rgba(255,255,255,0.15);
+.status-toggle.on {
+  background: var(--mobile-success);
 }
 
-/* 统计 */
-.stats-row {
+.status-toggle.on span {
+  transform: translateX(19px);
+}
+
+.hero-metrics {
+  margin-top: 20px;
+}
+
+.stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  padding: 16px;
-  margin-top: -12px;
-  position: relative;
-  z-index: 2;
+  margin-top: 14px;
 }
+
 .stat-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 16px 8px;
-  text-align: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
-  border: 1px solid #f1f5f9;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 15px 8px;
 }
-.stat-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 8px;
-  font-size: 16px;
+
+.stat-card .van-icon {
+  color: var(--mobile-brand);
+  font-size: 23px;
 }
-.stat-num {
+
+.stat-card strong {
+  color: var(--mobile-ink);
   font-size: 18px;
-  font-weight: 800;
-  color: #1e293b;
-}
-.stat-label {
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
+  font-weight: 950;
 }
 
-/* 菜单 */
-.menu-section {
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.stat-card span {
+  color: var(--mobile-muted);
+  font-size: 11px;
 }
-.menu-item {
+
+.menu {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.menu button {
+  border: 1px solid var(--mobile-line);
+  border-radius: 18px;
+  background: rgba(255,255,255,.92);
+  padding: 15px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 14px;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-  border: 1px solid #f8fafc;
-  transition: background 0.15s;
-}
-.menu-item:active {
-  background: #f8fafc;
-}
-.menu-item.logout {
-  margin-top: 8px;
-}
-.menu-icon {
-  font-size: 20px;
-}
-.menu-label {
-  flex: 1;
+  gap: 11px;
+  color: var(--mobile-ink);
   font-size: 14px;
-  font-weight: 500;
-  color: #475569;
-}
-.menu-item.logout .menu-label {
-  color: #ef4444;
-}
-.menu-arrow {
-  font-size: 20px;
-  color: #cbd5e1;
+  font-weight: 850;
 }
 
-.tabbar {
-  background: rgba(255,255,255,0.9) !important;
-  backdrop-filter: blur(20px) !important;
-  border-top: 1px solid #f1f5f9 !important;
+.menu button span {
+  flex: 1;
+  text-align: left;
+}
+
+.menu button > .van-icon:first-child {
+  color: var(--mobile-brand);
+  font-size: 22px;
+}
+
+.menu button.danger,
+.menu button.danger > .van-icon:first-child {
+  color: var(--mobile-danger);
 }
 </style>

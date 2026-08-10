@@ -25,8 +25,16 @@ public class AdminController {
     private GiftService giftService;
     @Autowired
     private SettlementService settlementService;
+    @Autowired
+    private ServiceItemService serviceItemService;
 
     // ===== 订单管理 =====
+    @Operation(summary = "全部服务项目（含已下架）")
+    @GetMapping("/services")
+    public Result<?> services() {
+        return Result.success(serviceItemService.findAllForAdmin());
+    }
+
     @Operation(summary = "订单列表")
     @GetMapping("/orders")
     public Result<?> orders(@RequestParam(defaultValue = "1") int page,
