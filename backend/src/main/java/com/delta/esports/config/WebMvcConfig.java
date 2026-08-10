@@ -47,6 +47,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                     "/api/auth/register",
                     "/api/auth/refresh",
                     "/api/auth/wx-login",
+                    "/api/health",
                     "/api/payments/callbacks/provider/pay",
                     "/api/payments/callbacks/provider/refund",
                     "/swagger-ui/**",

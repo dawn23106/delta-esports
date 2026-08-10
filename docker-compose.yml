@@ -1,0 +1,44 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: delta_esports
+      MYSQL_USER: ${MYSQL_USERNAME:?set MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MYSQL_URL: jdbc:mysql://mysql:3306/delta_esports?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai
+      MYSQL_USERNAME: ${MYSQL_USERNAME:?set MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      PAYMENT_ENABLED: ${PAYMENT_ENABLED:-false}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-yungouos}
+      PAYMENT_MERCHANT_ID: ${PAYMENT_MERCHANT_ID:-}
+      PAYMENT_API_KEY: ${PAYMENT_API_KEY:-}
+      PAYMENT_PAY_NOTIFY_URL: ${PAYMENT_PAY_NOTIFY_URL:-}
+      PAYMENT_REFUND_NOTIFY_URL: ${PAYMENT_REFUND_NOTIFY_URL:-}
+      WECHAT_MINIPROGRAM_APP_ID: ${WECHAT_MINIPROGRAM_APP_ID:-}
+      WECHAT_MINIPROGRAM_APP_SECRET: ${WECHAT_MINIPROGRAM_APP_SECRET:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

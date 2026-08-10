@@ -54,3 +54,9 @@ jobs:
         working-directory: frontend-uniapp
       - run: npm run build:mp-weixin
         working-directory: frontend-uniapp
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build --tag delta-esports:test .

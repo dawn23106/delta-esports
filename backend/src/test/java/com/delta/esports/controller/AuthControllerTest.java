@@ -106,6 +106,11 @@ class AuthControllerTest {
         mockMvc.perform(get("/api/announcements"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(get("/api/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("UP"));
     }
 
     @Test

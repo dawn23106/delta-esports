@@ -99,7 +99,7 @@ SSL 证书配在 nginx 上，后端 Java 不需要关心加密。内部通信走
 
 - 一台云服务器（阿里云 ECS / 腾讯云 CVM），最低 2C4G
 - 一个域名，DNS 解析到服务器 IP
-- 服务器装好：JDK 21、nginx、MySQL 8.0
+- 服务器装好：JDK 17、nginx、MySQL 8.0
 
 #### 步骤
 
@@ -109,7 +109,7 @@ SSL 证书配在 nginx 上，后端 Java 不需要关心加密。内部通信走
 # 1. 构建后端
 cd backend
 mvn clean package -DskipTests
-# 产物：target/delta-esports-0.0.1-SNAPSHOT.jar
+# 产物：target/delta-esports-2.0.0.jar
 
 # 2. 构建前端
 cd frontend-mobile && npm run build   # 产物：dist/
@@ -138,7 +138,7 @@ EOF
 source /opt/delta-esports/env.sh
 
 # 6. 启动后端（先手动试一次）
-java -jar /opt/delta-esports/delta-esports-0.0.1-SNAPSHOT.jar
+java -jar /opt/delta-esports/delta-esports-2.0.0.jar
 
 # 7. 配 nginx
 sudo vim /etc/nginx/sites-available/delta-esports
@@ -207,7 +207,7 @@ Type=simple
 User=你的用户名
 WorkingDirectory=/opt/delta-esports
 EnvironmentFile=/opt/delta-esports/env.sh
-ExecStart=/usr/bin/java -Xmx512m -jar /opt/delta-esports/delta-esports-0.0.1-SNAPSHOT.jar
+ExecStart=/usr/bin/java -Xmx512m -jar /opt/delta-esports/delta-esports-2.0.0.jar
 Restart=on-failure
 RestartSec=10
 
@@ -235,7 +235,7 @@ sudo systemctl start delta-esports
 
 ### 方式二：Docker Compose（推荐）
 
-> **适用**：想一键启动、不想在服务器上装 JDK/nginx/MySQL
+> **适用**：想一键启动后端和 MySQL；公网 HTTPS 与两个 Web 前端仍交给宿主机 nginx。
 
 #### 为什么 Docker？
 
@@ -255,109 +255,20 @@ Docker 把应用和它的运行环境**打包在一起**。你不是在服务器
 
 **核心优势**：开发环境 = 测试环境 = 生产环境。不会出现"我电脑上好好的"。
 
-#### 文件结构
+#### 仓库内已经准备好的文件
 
-```
-delta-esports/
-├── backend/
-│   └── Dockerfile          # 后端镜像
-├── frontend-mobile/
-│   └── Dockerfile          # 前端构建 + nginx
-├── frontend-admin/
-│   └── Dockerfile
-├── docker-compose.yml      # 一键编排所有服务
-├── nginx/
-│   └── nginx.conf          # 总 nginx 配置
-└── .env                    # 环境变量（不提交 git）
-```
+- 根目录 `Dockerfile`：使用 JDK 17 多阶段构建，构建时运行后端测试，运行阶段使用非 root 用户。
+- `docker-compose.yml`：启动 MySQL 8.4 与后端，并等待数据库健康后再启动应用。
+- `.env.example`：列出数据库、JWT、CORS、微信小程序和支付变量；复制成 `.env` 后填写，禁止提交真实密钥。
+- `/api/health`：容器和云平台均可使用的公开健康检查。
 
-#### 配置文件
-
-**`backend/Dockerfile`**：
-```dockerfile
-# 第一阶段：构建
-FROM maven:3.9-eclipse-temurin-21 AS builder
-WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline
-COPY src ./src
-RUN mvn package -DskipTests
-
-# 第二阶段：运行（更小的镜像）
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-COPY --from=builder /app/target/*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-Xmx512m", "-jar", "app.jar"]
-```
-
-> **为什么两阶段构建？** Maven 镜像 700MB，JRE 镜像 200MB。只用 Maven 编译，把产物拷到 JRE 镜像运行，最终镜像只有 200MB。
-
-**`frontend-mobile/Dockerfile`**：
-```dockerfile
-# 第一阶段：构建
-FROM node:22-alpine AS builder
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# 第二阶段：用 nginx 托管静态文件
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html/m
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
-```
-
-**`docker-compose.yml`**：
-```yaml
-services:
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: delta_esports
-      MYSQL_CHARSET: utf8mb4
-    volumes:
-      - mysql_data:/var/lib/mysql   # 数据持久化
-    restart: unless-stopped
-
-  backend:
-    build: ./backend
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      JWT_SECRET: ${JWT_SECRET}
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      CORS_ORIGINS: ${CORS_ORIGINS}
-    depends_on:
-      mysql:
-        condition: service_healthy
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - mobile_dist:/usr/share/nginx/html/m
-      - admin_dist:/usr/share/nginx/html/admin
-      - ./ssl:/etc/nginx/ssl    # SSL 证书
-    depends_on:
-      - backend
-    restart: unless-stopped
-
-volumes:
-  mysql_data:
-  mobile_dist:
-  admin_dist:
-```
+后端端口只绑定到 `127.0.0.1:8080`，不会直接暴露在公网。前端执行 `npm run build` 后分别生成适用于 `/m/` 和 `/admin/` 的资源路径，再由前面的 nginx 配置托管。
 
 #### 日常操作
 
 ```bash
-# 首次启动
+# 首次启动（先填写 .env）
+cp .env.example .env
 docker compose up -d
 
 # 更新代码后重新部署

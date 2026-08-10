@@ -78,6 +78,8 @@ npm run dev:mp-weixin
 
 也可以在 Windows 下运行 `start-all.cmd` 启动后端和两个 Web 前端。微信开发者工具应导入仓库根目录，`project.config.json` 已将小程序根目录指向 `frontend-uniapp/dist/dev/mp-weixin/`。
 
+后端和 MySQL 也可以通过 Docker 启动：复制 `.env.example` 为 `.env`，填写强密码和公网来源后执行 `docker compose up -d --build`。容器仅把后端绑定到 `127.0.0.1:8080`，应继续通过 nginx HTTPS 反向代理对外提供服务。
+
 ## 验证命令
 
 ```powershell

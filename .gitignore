@@ -17,6 +17,8 @@ frontend-uniapp/dist/
 .env
 .env.*
 !.env.example
+!frontend-admin/.env.production
+!frontend-mobile/.env.production
 backend/effective-pom
 
 # Personal editor and WeChat DevTools state

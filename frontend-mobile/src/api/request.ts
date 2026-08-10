@@ -17,6 +17,14 @@ request.interceptors.request.use(config => {
 request.interceptors.response.use(
   res => {
     const body = res.data
+    if (body && typeof body === 'object' && 'code' in body && body.code !== 200) {
+      const auth = useAuthStore()
+      if (body.code === 401 && !auth.isGuest) {
+        auth.logout()
+        window.location.href = `${import.meta.env.BASE_URL}login`
+      }
+      return Promise.reject({ response: { status: body.code, data: body } })
+    }
     // 后端统一返回 Result<T> { code, message, data }
     // 直接解包到 data 层，调用处直接拿业务数据
     if (body && typeof body === 'object' && 'data' in body) {
@@ -30,7 +38,7 @@ request.interceptors.response.use(
       // 游客模式下 401 不跳转登录页，静默失败
       if (!auth.isGuest) {
         auth.logout()
-        window.location.href = '/login'
+        window.location.href = `${import.meta.env.BASE_URL}login`
       }
     }
     return Promise.reject(err)
