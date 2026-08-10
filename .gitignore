@@ -19,6 +19,10 @@ frontend-uniapp/dist/
 !.env.example
 backend/effective-pom
 
+# Personal editor and WeChat DevTools state
+docs/.obsidian/
+frontend-uniapp/project.private.config.json
+
 # IDE (keep run configurations only)
 .idea/*
 !.idea/runConfigurations/

@@ -103,4 +103,3 @@ npm run build:mp-weixin
 - [本次发布迁移](docs/release-migration.sql)
 
 生产部署前至少需要配置 `MYSQL_USERNAME`、`MYSQL_PASSWORD`、`JWT_SECRET`、`CORS_ORIGINS`，以及支付和微信小程序相关环境变量。任何密钥都不应提交到仓库。
-
