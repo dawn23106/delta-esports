@@ -1,34 +1,48 @@
 import axios from 'axios'
-import { showToast } from 'vant'
+import { useAuthStore } from '../store/auth'
 
-const http = axios.create({
-  baseURL: '/api',
-  timeout: 10000
-})
+const BASE_URL = '/api'
+const request = axios.create({ baseURL: BASE_URL })
 
-http.interceptors.request.use(config => {
-  const token = localStorage.getItem('accessToken')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+// 请求拦截器：自动带 Token
+request.interceptors.request.use(config => {
+  const auth = useAuthStore()
+  if (auth.accessToken) {
+    config.headers.Authorization = `Bearer ${auth.accessToken}`
+  }
   return config
 })
 
-http.interceptors.response.use(
+// 响应拦截器：统一错误处理
+request.interceptors.response.use(
   res => {
-    const d = res.data
-    if (d.code !== 200) {
-      showToast(d.msg || '请求失败')
-      return Promise.reject(d)
+    const body = res.data
+    if (body && typeof body === 'object' && 'code' in body && body.code !== 200) {
+      const auth = useAuthStore()
+      if (body.code === 401 && !auth.isGuest) {
+        auth.logout()
+        window.location.href = `${import.meta.env.BASE_URL}login`
+      }
+      return Promise.reject({ response: { status: body.code, data: body } })
     }
-    return d
+    // 后端统一返回 Result<T> { code, message, data }
+    // 直接解包到 data 层，调用处直接拿业务数据
+    if (body && typeof body === 'object' && 'data' in body) {
+      return body.data
+    }
+    return body
   },
   err => {
     if (err.response?.status === 401) {
-      localStorage.clear()
-      window.location.href = '/login'
+      const auth = useAuthStore()
+      // 游客模式下 401 不跳转登录页，静默失败
+      if (!auth.isGuest) {
+        auth.logout()
+        window.location.href = `${import.meta.env.BASE_URL}login`
+      }
     }
-    showToast('网络错误')
     return Promise.reject(err)
   }
 )
 
-export default http
+export default request

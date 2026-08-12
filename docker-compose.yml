@@ -1,53 +1,43 @@
 services:
   mysql:
-    image: mysql:8.0
-    container_name: delta-mysql
+    image: mysql:8.4
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: delta_helper
-    ports:
-      - "3307:3306"
+      MYSQL_DATABASE: delta_esports
+      MYSQL_USER: ${MYSQL_USERNAME:?set MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    command: --default-authentication-plugin=mysql_native_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: delta-redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  app:
+  backend:
     build: .
-    profiles: ["full"]
+    restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: default
-      DATABASE_URL: jdbc:mysql://mysql:3306/delta_helper?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-      DATABASE_USERNAME: root
-      DATABASE_PASSWORD: root
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_ACCESS_SECRET: local-compose-access-secret-change-before-production
-      JWT_REFRESH_SECRET: local-compose-refresh-secret-change-before-production
-      CORS_ORIGINS: http://localhost:8080
-      SEED_DEMO_USER: "true"
+      SPRING_PROFILES_ACTIVE: prod
+      MYSQL_URL: jdbc:mysql://mysql:3306/delta_esports?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai
+      MYSQL_USERNAME: ${MYSQL_USERNAME:?set MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      PAYMENT_ENABLED: ${PAYMENT_ENABLED:-false}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-yungouos}
+      PAYMENT_MERCHANT_ID: ${PAYMENT_MERCHANT_ID:-}
+      PAYMENT_API_KEY: ${PAYMENT_API_KEY:-}
+      PAYMENT_PAY_NOTIFY_URL: ${PAYMENT_PAY_NOTIFY_URL:-}
+      PAYMENT_REFUND_NOTIFY_URL: ${PAYMENT_REFUND_NOTIFY_URL:-}
+      WECHAT_MINIPROGRAM_APP_ID: ${WECHAT_MINIPROGRAM_APP_ID:-}
+      WECHAT_MINIPROGRAM_APP_SECRET: ${WECHAT_MINIPROGRAM_APP_SECRET:-}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       mysql:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
 volumes:

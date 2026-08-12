@@ -1,0 +1,17 @@
+{
+  "description": "沧月电竞微信小程序",
+  "miniprogramRoot": "frontend-uniapp/dist/build/mp-weixin/",
+  "compileType": "miniprogram",
+  "appid": "wx9ae5e02fb2b2bf70",
+  "projectname": "沧月电竞",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true
+  },
+  "packOptions": {
+    "ignore": []
+  }
+}

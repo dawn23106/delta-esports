@@ -1,7 +1,9 @@
 .git
+.github
 .idea
 **/node_modules
 **/dist
-**/target
+backend/target
+docs
 *.log
-.env*
+.env

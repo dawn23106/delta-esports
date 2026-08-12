@@ -1,26 +1,42 @@
-# Java
-target/
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
 *.class
 *.jar
 *.war
-*.log
 
-# Maven
-.mvn/
+# Frontend
+frontend-admin/node_modules/
+frontend-admin/dist/
+frontend-mobile/node_modules/
+frontend-mobile/dist/
+frontend-uniapp/node_modules/
+frontend-uniapp/dist/
 
-# Node
-node_modules/
-dist/
-backend/src/main/resources/static/
-
-# Claude
-.claude/
-
-# Environment
+# Local environment and generated diagnostics
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!frontend-admin/.env.production
+!frontend-mobile/.env.production
+backend/effective-pom
+
+# Personal editor and WeChat DevTools state
+docs/.obsidian/
+frontend-uniapp/project.private.config.json
+
+# IDE (keep run configurations only)
+.idea/*
+!.idea/runConfigurations/
+*.iml
+.settings/
+.project
+.classpath
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+*.tmp

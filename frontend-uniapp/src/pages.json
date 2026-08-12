@@ -1,0 +1,41 @@
+{
+  "pages": [
+    { "path": "pages/auth/login", "style": { "navigationStyle": "custom", "backgroundColor": "#f3f6f2" } },
+    { "path": "pages/auth/register", "style": { "navigationStyle": "custom", "backgroundColor": "#f3f6f2" } },
+    { "path": "pages/home/home", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/discover/discover", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/messages/messages", "style": { "navigationBarTitleText": "订单聊天" } },
+    { "path": "pages/profile/profile", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/boss/chat", "style": { "navigationBarTitleText": "订单聊天" } },
+    { "path": "pages/boss/order-detail", "style": { "navigationBarTitleText": "订单详情" } },
+    { "path": "pages/boss/order-history", "style": { "navigationBarTitleText": "订单记录" } },
+    { "path": "pages/boss/gifts", "style": { "navigationBarTitleText": "我的礼物" } },
+    { "path": "pages/boss/reviews", "style": { "navigationBarTitleText": "我的评价" } },
+    { "path": "pages/boss/service", "style": { "navigationBarTitleText": "全部服务" } },
+    { "path": "pages/boss/contact", "style": { "navigationBarTitleText": "特殊需求客服" } },
+    { "path": "pages/boss/settings", "style": { "navigationBarTitleText": "设置" } },
+    { "path": "pages/booster/order-process", "style": { "navigationBarTitleText": "进行中的订单" } }
+  ],
+  "tabBar": {
+    "color": "#8b978e",
+    "selectedColor": "#2c704d",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "首页" },
+      { "pagePath": "pages/discover/discover", "text": "服务" },
+      { "pagePath": "pages/messages/messages", "text": "聊天" },
+      { "pagePath": "pages/profile/profile", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "沧月电竞",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f3f6f2"
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": { "^app-icon": "@/components/AppIcon.vue" }
+  }
+}

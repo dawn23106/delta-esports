@@ -1,7 +1,13 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="后端-SpringBoot" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
-    <module name="delta-helper" />
-    <option name="SPRING_BOOT_MAIN_CLASS" value="com.delta.DeltaApplication" />
+  <configuration default="false" name="后端_SpringBoot" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="ALTERNATIVE_JRE_PATH" value="ms-17.0.19" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <envs>
+      <env name="JAVA_HOME" value="$USER_HOME$/.jdks/ms-17.0.19" />
+    </envs>
+    <module name="delta-esports" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.delta.esports.DeltaEsportsApplication" />
+    <option name="VM_PARAMETERS" value="-Xms256m -Xmx1024m" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

@@ -1,111 +1,107 @@
-# 游戏陪练订单撮合平台
+# 沧月电竞服务平台
 
-一个可运行的多角色订单撮合系统：玩家发布需求，服务者并发抢单，客服负责派单和用户管理。
+面向三角洲行动陪玩与护航业务的多角色订单平台。项目覆盖玩家下单、打手接单履约、订单内沟通、客服管理和微信小程序支付，重点演示完整业务状态机、支付幂等与并发一致性处理。
 
-## 在线演示
+> 当前阶段：可演示、可联调的 MVP。开发环境默认使用 H2 与模拟支付；正式上线前仍需完成主体资质、微信小程序审核、YunGouOS 商户配置、域名备案及真实支付验收。
 
-部署后访问同一域名下的三个入口：
+## 产品形态
 
-- `/`：演示导航页
-- `/app/`：玩家与服务者移动端
-- `/admin/`：客服管理端
-- `/api/health`：健康检查
+- 玩家端小程序：浏览标准服务、直接下单付款、查看进度、在订单内传递房间号、评价与个人中心。
+- 打手端：订单池、抢单、开始服务、提交结果、订单消息、收益与接单状态。
+- 客服管理后台：服务配置、创建/派发订单、订单审核、公告、打手与结算管理。
+- H5 原型：保留玩家与打手完整业务页面，便于浏览器演示和快速验收。
 
-演示客服账号默认为 `13800000000 / cs123456`，可通过环境变量修改。演示环境仅使用模拟订单，不涉及真实交易或支付。
+## 技术栈
 
-## 核心技术
+| 模块 | 技术 |
+| --- | --- |
+| 后端 | Java 17、Spring Boot、MyBatis-Plus、MySQL/H2、JWT |
+| 微信小程序 | uni-app、Vue 3、TypeScript、Pinia |
+| H5 玩家/打手端 | Vue 3、Vite、Vant、Tailwind CSS |
+| 客服后台 | Vue 3、Vite、Element Plus、Pinia |
+| 支付 | 可插拔支付网关；当前实现 YunGouOS 小程序支付、查单、回调、关单与退款 |
 
-- Spring Boot 3.3、MyBatis、MySQL/H2、Redis、JWT
-- Vue 3、Vant、Element Plus、Vite
-- 乐观并发控制：`UPDATE ... WHERE status = 'pending'`
-- Redis `SETNX` 防止短时间重复下单
-- Access Token + Refresh Token 续期与退出
-- 数据库定时任务关闭 30 分钟未接订单
-- GitHub Actions 自动测试、前端构建和容器构建
+## 核心业务流程
 
-## 订单状态机
-
-```text
-pending -> assigned -> in_progress -> completed
-    |          |              |
-    +----------+--------------+-> cancelled
+```mermaid
+flowchart LR
+    A[玩家选择标准服务] --> B[创建待支付订单]
+    B --> C[微信小程序支付]
+    C --> D{是否预选打手}
+    D -- 否 --> E[进入公共订单池]
+    D -- 是且空闲 --> F[分配给预选打手]
+    D -- 已忙 --> E
+    E --> G[打手原子抢单]
+    F --> H[开始服务]
+    G --> H
+    H --> I[订单内沟通与提交结果]
+    I --> J[玩家或客服确认]
+    J --> K[结算入账并释放打手]
 ```
 
-抢单通过带状态条件的原子更新执行。并发请求中只有第一个请求能把 `pending` 改为 `assigned`，其余请求得到 `409` 业务冲突。
+未上架的非标准服务由玩家联系客服协商，再由客服创建订单；已有标准服务不增加咨询步骤。
 
-## 一键启动演示模式
+## 一致性与安全设计
 
-演示模式使用内嵌 H2，不要求安装 MySQL 或 Redis：
+- 抢单、开始、提交、确认和退款使用带状态条件的原子更新，避免重复履约或重复结算。
+- 打手状态采用 `idle → busy → idle` 原子流转，防止同一打手并发接取两单。
+- 支付准备锁定业务订单；支付回调、主动查单和退款均做幂等处理。
+- 玩家预选打手在支付成功时才占用；若已被占用，订单自动回到公共订单池。
+- 礼物扣款使用数据库余额条件更新，避免并发超扣，并校验金额范围与精度。
+- JWT 区分访问令牌与刷新令牌；角色接口、订单详情和公开打手信息均做权限/字段隔离。
+- 生产环境不初始化演示账号，数据库密码、JWT 密钥与 CORS 来源必须由环境变量提供。
+
+## 本地运行
+
+要求：JDK 17、Node.js 20+、npm。
 
 ```powershell
+# 后端（默认 dev：H2 + 模拟支付）
 cd backend
-$env:SPRING_PROFILES_ACTIVE="demo"
-mvn spring-boot:run
-```
+.\mvnw.cmd spring-boot:run
 
-健康检查：`http://localhost:8080/api/health`
-
-## MySQL + Redis 本地开发
-
-```powershell
-docker compose up -d mysql redis
-Copy-Item .env.example .env
-cd backend
-mvn spring-boot:run
-```
-
-数据库首次启动时会自动执行 `backend/src/main/resources/schema.sql`。前端分别运行：
-
-```powershell
-cd frontend-mobile
-npm ci
+# 客服后台
+cd ..\frontend-admin
+npm install
 npm run dev
-```
 
-```powershell
-cd frontend-admin
-npm ci
+# H5 玩家/打手端
+cd ..\frontend-mobile
+npm install
 npm run dev
+
+# 微信小程序
+cd ..\frontend-uniapp
+npm install
+npm run dev:mp-weixin
 ```
 
-## 测试
+也可以在 Windows 下运行 `start-all.cmd` 启动后端和两个 Web 前端。微信开发者工具应导入仓库根目录，`project.config.json` 已将小程序根目录指向 `frontend-uniapp/dist/dev/mp-weixin/`。
+
+后端和 MySQL 也可以通过 Docker 启动：复制 `.env.example` 为 `.env`，填写强密码和公网来源后执行 `docker compose up -d --build`。容器仅把后端绑定到 `127.0.0.1:8080`，应继续通过 nginx HTTPS 反向代理对外提供服务。
+
+## 验证命令
 
 ```powershell
 cd backend
-mvn test
+.\mvnw.cmd test
 
-cd ../frontend-mobile
-npm ci
+cd ..\frontend-admin
 npm run build
 
-cd ../frontend-admin
-npm ci
+cd ..\frontend-mobile
 npm run build
+
+cd ..\frontend-uniapp
+npm run type-check
+npm run build:mp-weixin
 ```
 
-后端测试覆盖：
+## 上线配置
 
-- 乐观锁抢单成功与并发冲突
-- 非服务者越权抢单
-- 客服派单并发冲突
-- 用户密码哈希不进入 JSON 响应
-- 超时订单扫描任务
+- [部署说明](docs/deployment-guide.md)
+- [支付接入与回调说明](docs/payment-integration.md)
+- [支付表迁移](docs/payment-migration.sql)
+- [本次发布迁移](docs/release-migration.sql)
 
-## 部署
-
-仓库包含多阶段 `Dockerfile`，会构建两个 Vue 前端并打包进 Spring Boot。`render.yaml` 可用于 Render Blueprint 部署：
-
-1. 在 Render 选择 **New Blueprint Instance**。
-2. 连接本仓库。
-3. Render 自动读取 `render.yaml` 并生成 JWT 密钥。
-4. 部署成功后访问服务根地址。
-
-免费演示配置使用 H2 文件数据库，实例重建后数据可能重置。正式环境应连接托管 MySQL 与 Redis，并替换全部默认凭据。
-
-## 安全说明
-
-- 数据库密码、JWT 密钥和 CORS 来源全部由环境变量提供。
-- 用户密码使用 BCrypt 哈希，实体序列化时强制忽略密码字段。
-- 后台接口统一检查客服角色。
-- 玩家只能查询和取消自己的订单，服务者只能操作分配给自己的订单。
-- 项目不接入真实支付，不处理真实陪练交易。
+生产部署前至少需要配置 `MYSQL_USERNAME`、`MYSQL_PASSWORD`、`JWT_SECRET`、`CORS_ORIGINS`，以及支付和微信小程序相关环境变量。任何密钥都不应提交到仓库。

@@ -1,25 +1,37 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
 
-const http = axios.create({ baseURL: '/api', timeout: 10000 })
+const request = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '/api' })
 
-http.interceptors.request.use(config => {
-  const token = localStorage.getItem('accessToken')
+request.interceptors.request.use(config => {
+  const token = localStorage.getItem('adminToken')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-http.interceptors.response.use(
+request.interceptors.response.use(
   res => {
-    const d = res.data
-    if (d.code !== 200) { ElMessage.error(d.msg || '请求失败'); return Promise.reject(d) }
-    return d
+    const body = res.data
+    if (body && typeof body === 'object' && 'code' in body && body.code !== 200) {
+      if (body.code === 401) {
+        localStorage.removeItem('adminToken')
+        window.location.href = `${import.meta.env.BASE_URL}login`
+      }
+      return Promise.reject({ response: { status: body.code, data: body } })
+    }
+    // 后端统一返回 Result<T> { code, message, data }
+    // 直接解包到 data 层，调用处直接拿业务数据
+    if (body && typeof body === 'object' && 'data' in body) {
+      return body.data
+    }
+    return body
   },
   err => {
-    if (err.response?.status === 401) { localStorage.clear(); window.location.href = '/login' }
-    ElMessage.error('网络错误')
+    if (err.response?.status === 401) {
+      localStorage.removeItem('adminToken')
+      window.location.href = `${import.meta.env.BASE_URL}login`
+    }
     return Promise.reject(err)
   }
 )
 
-export default http
+export default request

@@ -1,36 +1,127 @@
 server:
   port: ${PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
 
 spring:
+  application:
+    name: delta-esports
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  profiles:
+    active: dev
+
+---
+# H2 开发环境
+spring:
+  config:
+    activate:
+      on-profile: dev
   datasource:
-    url: ${DATABASE_URL:jdbc:mysql://localhost:3307/delta_helper?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
-    username: ${DATABASE_USERNAME:root}
-    password: ${DATABASE_PASSWORD:root}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-
+    url: jdbc:h2:mem:delta_esports;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
   sql:
     init:
-      mode: ${SQL_INIT_MODE:never}
+      mode: always
+      schema-locations: classpath:schema.sql
 
-mybatis:
-  mapper-locations: classpath:mapper/*.xml
+mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
 jwt:
-  access-secret: ${JWT_ACCESS_SECRET:change-this-access-secret-before-production-32-bytes}
-  access-ttl: 15m
-  refresh-secret: ${JWT_REFRESH_SECRET:change-this-refresh-secret-before-production-32-bytes}
-  refresh-ttl: 7d
+  secret: ${JWT_SECRET:delta-esports-dev-secret-key-min-32-chars}
+  expiration: 86400000
+  refresh-expiration: 604800000
 
-app:
-  cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
-  seed:
-    enabled: ${SEED_DEMO_USER:true}
-    cs-phone: ${DEMO_CS_PHONE:13800000000}
-    cs-password: ${DEMO_CS_PASSWORD:cs123456}
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.delta.esports: debug
+
+payment:
+  enabled: ${PAYMENT_ENABLED:false}
+  mock-enabled: ${PAYMENT_MOCK_ENABLED:true}
+  provider: ${PAYMENT_PROVIDER:yungouos}
+  api-base-url: ${PAYMENT_API_BASE_URL:https://api.pay.yungouos.com}
+  merchant-id: ${PAYMENT_MERCHANT_ID:}
+  api-key: ${PAYMENT_API_KEY:}
+  app-id: ${WECHAT_MINIPROGRAM_APP_ID:wx9ae5e02fb2b2bf70}
+  app-secret: ${WECHAT_MINIPROGRAM_APP_SECRET:}
+  pay-notify-url: ${PAYMENT_PAY_NOTIFY_URL:}
+  refund-notify-url: ${PAYMENT_REFUND_NOTIFY_URL:}
+  connect-timeout-ms: 5000
+  read-timeout-ms: 10000
+
+---
+# MySQL 生产环境
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/delta_esports?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+  sql:
+    init:
+      mode: never
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+cors:
+  allowed-origins: ${CORS_ORIGINS}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+payment:
+  enabled: ${PAYMENT_ENABLED:false}
+  mock-enabled: false
+  provider: ${PAYMENT_PROVIDER:yungouos}
+  api-base-url: ${PAYMENT_API_BASE_URL:https://api.pay.yungouos.com}
+  merchant-id: ${PAYMENT_MERCHANT_ID:}
+  api-key: ${PAYMENT_API_KEY:}
+  app-id: ${WECHAT_MINIPROGRAM_APP_ID:wx9ae5e02fb2b2bf70}
+  app-secret: ${WECHAT_MINIPROGRAM_APP_SECRET:}
+  pay-notify-url: ${PAYMENT_PAY_NOTIFY_URL:}
+  refund-notify-url: ${PAYMENT_REFUND_NOTIFY_URL:}
+  connect-timeout-ms: 5000
+  read-timeout-ms: 10000
