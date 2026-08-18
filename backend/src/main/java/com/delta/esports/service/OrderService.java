@@ -8,11 +8,14 @@ import com.delta.esports.dto.CompleteOrderRequest;
 import com.delta.esports.dto.CreateOrderRequest;
 import com.delta.esports.entity.*;
 import com.delta.esports.mapper.*;
+import com.delta.esports.push.OrderPushService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -35,6 +38,12 @@ public class OrderService {
     private BalanceTransactionMapper balanceTransactionMapper;
     @Autowired
     private PaymentService paymentService;
+    @Autowired
+    private OrderPushService orderPushService;
+
+    /** 平台抽成比例，例如 0.15 表示平台抽 15% */
+    @Value("${app.commission.rate:0.15}")
+    private BigDecimal commissionRate;
 
     // ==================== 查询 ====================
 
@@ -114,7 +123,9 @@ public class OrderService {
         if (orderMapper.claim(orderId, boosterId) == 0) {
             throw new BusinessException("订单已被接取");
         }
-        return orderMapper.selectById(orderId);
+        Order result = orderMapper.selectById(orderId);
+        orderPushService.pushOrderEvent(result);
+        return result;
     }
 
     // ==================== 开始服务 ====================
@@ -124,7 +135,9 @@ public class OrderService {
         if (orderMapper.start(orderId, userId) == 0) {
             throw new BusinessException("订单状态已变化或无权操作");
         }
-        return orderMapper.selectById(orderId);
+        Order result = orderMapper.selectById(orderId);
+        orderPushService.pushOrderEvent(result);
+        return result;
     }
 
     // ==================== 陪陪提交成果 ====================
@@ -136,7 +149,9 @@ public class OrderService {
                 req.getResultNote(), req.getResultImages()) == 0) {
             throw new BusinessException("订单状态已变化或无权操作");
         }
-        return orderMapper.selectById(req.getOrderId());
+        Order result = orderMapper.selectById(req.getOrderId());
+        orderPushService.pushOrderEvent(result);
+        return result;
     }
 
     // ==================== 老板确认完成 ====================
@@ -160,29 +175,39 @@ public class OrderService {
         }
 
         // 第二步：抢占成功后才动钱 —— 只有通过上面的请求才有资格转账，不会重复转账。
-        // 原子转账给陪陪：数据库自己算 balance = balance + amount，不依赖读到的旧值。
-        userMapper.addBalance(order.getBoosterId(), order.getAmount());
+        // 按抽成比例拆分：gross = 订单总额，commission = 平台抽成，net = 打手净收入。
+        BigDecimal gross = order.getAmount();
+        BigDecimal commission = gross.multiply(commissionRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal net = gross.subtract(commission);
+
+        // 原子转账给陪陪：数据库自己算 balance = balance + net，不依赖读到的旧值。
+        userMapper.addBalance(order.getBoosterId(), net);
         // 完成单数原子 +1。
         userMapper.incrementTotalOrders(order.getBoosterId());
         userMapper.releaseBooster(order.getBoosterId());
 
-        // 创建结算记录
+        // 创建结算记录（记录总额、抽成与净收入）
         Settlement settlement = new Settlement();
         settlement.setOrderId(order.getId());
         settlement.setBoosterId(order.getBoosterId());
-        settlement.setAmount(order.getAmount());
+        settlement.setAmount(gross);
+        settlement.setCommission(commission);
+        settlement.setNetAmount(net);
+        settlement.setCommissionRate(commissionRate);
         settlement.setStatus("completed");
         settlementMapper.insert(settlement);
 
         // 记录转账流水（转账后重新读一次余额，balance_after 才准确）
         User booster = userMapper.selectById(order.getBoosterId());
-        recordTransaction(booster.getId(), orderId, order.getAmount(), "TRANSFER",
-                booster.getBalance(), "订单完成，收入到账");
+        recordTransaction(booster.getId(), orderId, net, "TRANSFER",
+                booster.getBalance(), "订单完成，净收入到账");
 
         // 更新陪陪评分
         updateBoosterRating(order.getBoosterId());
 
-        return orderMapper.selectById(orderId);
+        Order result = orderMapper.selectById(orderId);
+        orderPushService.pushOrderEvent(result);
+        return result;
     }
 
     // ==================== 取消订单（退款） ====================
@@ -201,6 +226,7 @@ public class OrderService {
         }
         Order result = paymentService.cancelAndRefund(order);
         if (order.getBoosterId() != null) userMapper.releaseBooster(order.getBoosterId());
+        orderPushService.pushOrderEvent(result);
         return result;
     }
 

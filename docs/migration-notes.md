@@ -101,9 +101,31 @@
 - 取消逻辑复用 `OrderMapper.cancelUnpaid` 原子更新；非 mock 支付且已预下单时会顺带调用支付网关 `close` 关闭预下单（失败不阻塞）。
 - 配置：`ORDER_TIMEOUT_MINUTES`、`ORDER_TIMEOUT_SCAN_MS`（默认 60000）、`ORDER_TIMEOUT_INITIAL_DELAY_MS`（默认 60000）。
 
+## 7. 平台抽成、提现与 WebSocket 推送
+
+### 平台抽成
+
+- 订单完成结算拆分为 `amount`（订单总额）/ `commission`（平台抽成）/ `net_amount`（打手净收入）/ `commission_rate`（比例）。
+- 抽成比例可配置 `app.commission.rate`（`COMMISSION_RATE` 环境变量，默认 **0.15**）。打手余额只入账净收入，抽成记录在 `t_settlement` 中（平台暂不建立专门账户，抽成金额仅留痕备查）。
+- `t_settlement` 新增 3 列，存量库执行 `docs/release-migration.sql` 中对应的 `ALTER TABLE`。
+
+### 提现（结算满 7 天可提）
+
+- 新增 `t_withdrawal` 表与 `WithdrawalService`：陪陪申请提现时冻结余额，管理员 `approve / reject / paid` 审核，驳回自动退回冻结余额。
+- 可提现金额 = 「结算满 `app.withdrawal.lock-days`（默认 **7** 天）的净收入」−「已冻结（pending/approved/paid）提现额」。
+- 接口：`POST /api/withdrawals`（陪陪申请）、`GET /api/withdrawals/my`、`GET /api/admin/withdrawals`、`PUT /api/admin/withdrawals/{id}`。
+
+### WebSocket 推送（尽力实现，前端可后续接入）
+
+- 新增 `spring-boot-starter-websocket` 与极简推送：`/ws/orders?userId={userId}`。
+- 握手从 query 解析 userId（**尚未做鉴权，生产上线前需接入 token 校验**）；`OrderPushService` 在订单状态变化与新消息时向老板/打手推送 `ORDER_EVENT` / `ORDER_MESSAGE` JSON。
+- 前端未接入时为空操作，现有 REST 轮询不受影响。
+
 ## 部署注意事项
 
 1. 生产环境升级前，先在存量库执行 `docs/release-migration.sql` 中新增的 `CREATE INDEX` 语句（MySQL 不支持 `CREATE INDEX IF NOT EXISTS`，请确认同名索引不存在）。
 2. 本次为框架大版本升级，建议先在与生产同构的 MySQL 环境跑一遍完整回归（下单 → 支付 → 抢单 → 完成 → 结算 → 退款）。
 3. 错误响应契约已变更：任何依赖「HTTP 200 + body.code」的旧客户端/脚本需要适配为读取真实 HTTP 状态码。
 4. 分布式限流依赖 Redis：`docker compose up` 会自动拉起 `redis` 服务；如需关闭分布式限流回退单机内存，设 `RATE_LIMIT_REDIS_ENABLED=false`。
+5. 抽成与提现：存量库需执行 `docs/release-migration.sql` 中 `t_settlement` 的 `ALTER TABLE` 与 `t_withdrawal` 建表；抽成比例与提现锁定期分别用 `COMMISSION_RATE`、`WITHDRAWAL_LOCK_DAYS` 配置。
+6. WebSocket 推送握手尚未鉴权，上线前需在握手阶段校验 JWT，并收紧 `WebSocketConfig` 的 `setAllowedOrigins`。

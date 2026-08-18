@@ -27,6 +27,8 @@ public class AdminController {
     private SettlementService settlementService;
     @Autowired
     private ServiceItemService serviceItemService;
+    @Autowired
+    private WithdrawalService withdrawalService;
 
     // ===== 订单管理 =====
     @Operation(summary = "全部服务项目（含已下架）")
@@ -144,5 +146,22 @@ public class AdminController {
                                       @RequestParam(required = false) String remark) {
         settlementService.updateStatus(id, status, remark);
         return Result.success();
+    }
+
+    // ===== 提现管理 =====
+    @Operation(summary = "提现申请列表")
+    @GetMapping("/withdrawals")
+    public Result<?> withdrawals(@RequestParam(defaultValue = "1") int page,
+                                 @RequestParam(defaultValue = "10") int size,
+                                 @RequestParam(required = false) String status) {
+        return Result.success(withdrawalService.adminPage(page, size, status));
+    }
+
+    @Operation(summary = "审核提现申请（approve/reject/paid）")
+    @PutMapping("/withdrawals/{id}")
+    public Result<?> reviewWithdrawal(@PathVariable Long id,
+                                      @RequestParam String action,
+                                      @RequestParam(required = false) String remark) {
+        return Result.success(withdrawalService.review(id, action, remark));
     }
 }

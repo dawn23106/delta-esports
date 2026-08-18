@@ -44,6 +44,10 @@ app:
     minutes: ${ORDER_TIMEOUT_MINUTES:30}
     scan-ms: ${ORDER_TIMEOUT_SCAN_MS:60000}
     initial-delay-ms: ${ORDER_TIMEOUT_INITIAL_DELAY_MS:60000}
+  commission:
+    rate: ${COMMISSION_RATE:0.15}
+  withdrawal:
+    lock-days: ${WITHDRAWAL_LOCK_DAYS:7}
 
 mybatis-plus:
   configuration:
@@ -114,6 +118,10 @@ app:
     minutes: ${ORDER_TIMEOUT_MINUTES:30}
     scan-ms: ${ORDER_TIMEOUT_SCAN_MS:60000}
     initial-delay-ms: ${ORDER_TIMEOUT_INITIAL_DELAY_MS:60000}
+  commission:
+    rate: ${COMMISSION_RATE:0.15}
+  withdrawal:
+    lock-days: ${WITHDRAWAL_LOCK_DAYS:7}
 
 mybatis-plus:
   configuration:

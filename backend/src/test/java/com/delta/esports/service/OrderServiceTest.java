@@ -7,6 +7,7 @@ import com.delta.esports.mapper.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -17,6 +18,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+// 流程/并发测试聚焦状态机与幂等，抽成计算由 SettlementCommissionTest 单独覆盖，此处抽成置 0 简化断言
+@TestPropertySource(properties = "app.commission.rate=0")
 class OrderServiceTest {
 
     @Autowired private OrderService orderService;

@@ -129,6 +129,9 @@ CREATE TABLE IF NOT EXISTS t_settlement (
     order_id BIGINT NOT NULL,
     booster_id BIGINT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
+    commission DECIMAL(10,2) DEFAULT 0.00,
+    net_amount DECIMAL(10,2) DEFAULT 0.00,
+    commission_rate DECIMAL(6,4) DEFAULT 0.0000,
     status VARCHAR(20) DEFAULT 'pending',
     remark VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -161,5 +164,18 @@ CREATE TABLE IF NOT EXISTS t_order_message (
     type VARCHAR(20) DEFAULT 'text',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     KEY idx_order_msg_order (order_id, created_at)
+);
+
+-- 提现申请表：陪陪将结算满 7 天的净收入提现
+CREATE TABLE IF NOT EXISTS t_withdrawal (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    remark VARCHAR(500),
+    reviewed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_withdrawal_user (user_id)
 );
 

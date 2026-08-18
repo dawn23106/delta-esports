@@ -6,6 +6,7 @@ import com.delta.esports.entity.Order;
 import com.delta.esports.entity.OrderMessage;
 import com.delta.esports.mapper.OrderMapper;
 import com.delta.esports.mapper.OrderMessageMapper;
+import com.delta.esports.push.OrderPushService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,8 @@ public class OrderMessageService {
     private OrderMapper orderMapper;
     @Autowired
     private OrderMessageMapper messageMapper;
+    @Autowired
+    private OrderPushService orderPushService;
 
     public List<OrderMessage> list(Long userId, Long orderId) {
         Order order = requireParticipant(userId, orderId);
@@ -51,6 +54,7 @@ public class OrderMessageService {
         }
         message.setType(normalizedType);
         messageMapper.insert(message);
+        orderPushService.pushOrderMessage(order.getBossId(), order.getBoosterId(), message);
         return message;
     }
 

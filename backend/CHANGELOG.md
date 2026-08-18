@@ -20,6 +20,9 @@
 - `t_user` / `t_order` / `t_order_message` / `t_balance_transaction` / `t_gift` / `t_review` / `t_settlement` 热点索引（见 `docs/release-migration.sql`）
 - **分布式限流**：`RateLimitService` 支持 Redis 计数，未启用/不可用时回退单机内存；`docker-compose.yml` 新增 `redis` 服务
 - **订单超时清理**：`OrderTimeoutScheduler` 周期取消超时未支付的 `pending_payment` 订单
+- **平台抽成**：结算拆分为 `amount`/`commission`/`net_amount`，比例可配置（`COMMISSION_RATE`，默认 15%），打手只入账净收入
+- **提现**：`t_withdrawal` + `WithdrawalService`，结算满 `WITHDRAWAL_LOCK_DAYS`（默认 7 天）后可提现，管理员 `approve/reject/paid` 审核、驳回自动退回
+- **WebSocket 推送**：`/ws/orders` 订单状态与新消息推送（前端可后续接入，握手鉴权待补强）
 
 ### Security
 - `RateLimitInterceptor` 客户端 IP 识别改用 `getRemoteAddr()`，不再信任可伪造的整段 `X-Forwarded-For`
