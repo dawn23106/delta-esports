@@ -1,5 +1,6 @@
 package com.delta.esports.controller;
 
+import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
 import com.delta.esports.common.Result;
 import com.delta.esports.dto.LoginRequest;
 import com.delta.esports.dto.LoginResponse;
@@ -11,8 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 @Tag(name = "认证", description = "登录注册相关接口")
 @RestController
@@ -44,7 +45,7 @@ public class AuthController {
     @GetMapping("/me")
     public Result<UserResponse> me(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
-        if (userId == null) return Result.error(401, "未登录");
+        if (userId == null) throw new BusinessException(401, "未登录");
         return Result.success(userService.findById(userId));
     }
 

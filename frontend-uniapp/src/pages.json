@@ -23,7 +23,7 @@
     "borderStyle": "white",
     "list": [
       { "pagePath": "pages/home/home", "text": "首页" },
-      { "pagePath": "pages/discover/discover", "text": "服务" },
+      { "pagePath": "pages/discover/discover", "text": "陪陪" },
       { "pagePath": "pages/messages/messages", "text": "聊天" },
       { "pagePath": "pages/profile/profile", "text": "我的" }
     ]

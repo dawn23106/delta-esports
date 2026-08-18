@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
 import com.delta.esports.common.PageResult;
+import com.delta.esports.common.PageSupport;
 import com.delta.esports.entity.Order;
 import com.delta.esports.entity.Review;
 import com.delta.esports.entity.User;
@@ -63,14 +64,14 @@ public class ReviewService {
     public PageResult<Review> getBoosterReviews(Long boosterId, int page, int size) {
         LambdaQueryWrapper<Review> qw = new LambdaQueryWrapper<>();
         qw.eq(Review::getBoosterId, boosterId).orderByDesc(Review::getCreatedAt);
-        Page<Review> result = reviewMapper.selectPage(new Page<>(page, size), qw);
+        Page<Review> result = reviewMapper.selectPage(PageSupport.of(page, size), qw);
         return PageResult.of(result);
     }
 
     public PageResult<Review> getBossReviews(Long bossId, int page, int size) {
         LambdaQueryWrapper<Review> qw = new LambdaQueryWrapper<>();
         qw.eq(Review::getBossId, bossId).orderByDesc(Review::getCreatedAt);
-        return PageResult.of(reviewMapper.selectPage(new Page<>(page, size), qw));
+        return PageResult.of(reviewMapper.selectPage(PageSupport.of(page, size), qw));
     }
 
     private void updateBoosterRating(Long boosterId) {

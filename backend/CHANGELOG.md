@@ -4,6 +4,32 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased] — Spring Boot 3 升级与错误响应统一
+
+### Changed
+- **Spring Boot 2.7.18 → 3.3.5**，全量完成 `javax.* → jakarta.*` 迁移（23 个文件）
+- MyBatis-Plus 改用 `mybatis-plus-spring-boot3-starter` 3.5.7；springdoc 升级为 `springdoc-openapi-starter-webmvc-ui` 2.6.0；jjwt 升级 0.12.6 并适配新 API
+- **错误响应统一为真实 HTTP 状态码**：业务异常不再返回 `HTTP 200 + code`，改为 400/401/403/404/409/429/500/502/503 对应真实状态
+- `BusinessException(String)` 默认码由 500 改为 400，客户端错误不再被标成服务器错误
+- `JwtInterceptor` 改为单次解析 JWT（新增 `JwtUtils.parseValidAccessToken()`）
+- 分页参数统一归一化（新增 `PageSupport`，`size` 夹紧 1~100，`page` 归一 ≥1）
+- 订单/服务项目「不存在」由默认 500 修正为 404
+
+### Added
+- `PageSupport` 分页参数归一化工具
+- `t_user` / `t_order` / `t_order_message` / `t_balance_transaction` / `t_gift` / `t_review` / `t_settlement` 热点索引（见 `docs/release-migration.sql`）
+- **分布式限流**：`RateLimitService` 支持 Redis 计数，未启用/不可用时回退单机内存；`docker-compose.yml` 新增 `redis` 服务
+- **订单超时清理**：`OrderTimeoutScheduler` 周期取消超时未支付的 `pending_payment` 订单
+
+### Security
+- `RateLimitInterceptor` 客户端 IP 识别改用 `getRemoteAddr()`，不再信任可伪造的整段 `X-Forwarded-For`
+- 移除 `application.yml` 中无实际作用的 `logic-delete-*` 死配置
+
+### Breaking
+- 业务错误响应契约变更：`HTTP 200 + {code,message}` → 真实 HTTP 状态码 + `{code,message}`（详见 `docs/migration-notes.md`）
+
+---
+
 ## [Unreleased] — v2.0.0 全面重构
 
 ### Added

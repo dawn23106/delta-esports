@@ -50,18 +50,33 @@
 
     <template v-else>
       <view class="mobile-hero customer-hero">
-        <text class="eyebrow">服务说明</text>
-        <text class="page-title">标准服务，不用先问客服</text>
-        <text class="page-subtitle">首页选择已上架服务直接下单；只有列表里没有的特殊需求，才由客服沟通创建订单。</text>
-      </view>
-      <view class="steps">
-        <view v-for="(step, index) in steps" :key="step.title" class="mobile-card step-card">
-          <text class="step-index">0{{ index + 1 }}</text>
-          <view><text class="step-title">{{ step.title }}</text><text class="step-desc">{{ step.desc }}</text></view>
+        <text class="eyebrow">ONLINE SQUAD</text>
+        <text class="page-title">选择心仪陪陪</text>
+        <text class="page-subtitle">看评分、接单量和在线状态，也可以指定陪陪下单。</text>
+        <view class="work-metrics">
+          <view><text>{{ onlineBoosters.length }}</text><text>当前在线</text></view>
+          <view><text>{{ boosters.length }}</text><text>全部陪陪</text></view>
+          <view><text>{{ averageRating }}</text><text>平均评分</text></view>
         </view>
       </view>
-      <button class="btn-primary" @tap="goHome">去选择服务</button>
-      <navigator url="/pages/boss/contact" class="custom-link">没有合适服务？联系人工客服 →</navigator>
+
+      <view v-if="loading" class="mobile-card loading">正在寻找在线陪陪…</view>
+      <view v-else-if="onlineBoosters.length" class="booster-list">
+        <view v-for="booster in onlineBoosters" :key="booster.id" class="mobile-card booster-card">
+          <view class="booster-avatar">
+            <image v-if="booster.avatar" :src="booster.avatar" mode="aspectFill" />
+            <text v-else>{{ (booster.nickname || '陪').slice(0, 1) }}</text>
+            <view :class="['status-dot', booster.boosterStatus]" />
+          </view>
+          <view class="booster-info">
+            <view class="booster-title"><text>{{ booster.nickname || '未命名陪陪' }}</text><text>{{ booster.boosterStatus === 'idle' ? '空闲' : '忙碌' }}</text></view>
+            <view class="booster-meta"><text>★ {{ booster.rating || '5.0' }}</text><text>{{ booster.totalOrders || 0 }} 单</text></view>
+            <text class="booster-intro">{{ booster.introduction || '认真陪玩，接单后可在聊天中沟通房间号。' }}</text>
+            <button class="choose-btn" :disabled="booster.boosterStatus !== 'idle'" @tap="openBoosterOrder(booster)">{{ booster.boosterStatus === 'idle' ? '指定 TA 下单' : '服务中' }}</button>
+          </view>
+        </view>
+      </view>
+      <view v-else class="empty-state"><view><text class="empty-title">暂无在线陪陪</text><text class="empty-desc">陪陪注册并开启接单后会显示在这里。</text></view></view>
     </template>
 
     <view v-if="showComplete" class="action-sheet-overlay" @tap="showComplete = false">
@@ -73,6 +88,21 @@
         </view>
       </view>
     </view>
+
+    <view v-if="showBoosterOrder" class="action-sheet-overlay" @tap="showBoosterOrder = false">
+      <view class="action-sheet-panel" @tap.stop>
+        <view class="complete-sheet">
+          <text class="sheet-title">指定 {{ selectedBooster?.nickname }} 下单</text>
+          <scroll-view scroll-y class="service-picker">
+            <view v-for="service in services" :key="service.id" :class="['service-option', { active: selectedServiceId === service.id }]" @tap="selectedServiceId = service.id">
+              <view><text>{{ service.name }}</text><text>{{ service.guaranteeDesc || service.description }}</text></view>
+              <text>¥{{ service.basePrice }}</text>
+            </view>
+          </scroll-view>
+          <button class="btn-primary" :disabled="!selectedServiceId || creatingOrder" @tap="submitBoosterOrder">{{ creatingOrder ? '正在创建订单…' : '确认并查看订单' }}</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -80,7 +110,9 @@
 import { computed, ref } from "vue"
 import { onShow } from "@dcloudio/uni-app"
 import { useAuthStore } from "@/store/auth"
-import { claimOrder, completeOrder, getMyOrders, getOrderPool, startOrder } from "@/api/orders"
+import { claimOrder, completeOrder, createOrder, getMyOrders, getOrderPool, startOrder } from "@/api/orders"
+import { getBoosters } from "@/api/users"
+import { getServices } from "@/api/services"
 
 const auth = useAuthStore()
 const tab = ref<'pool' | 'mine'>('pool')
@@ -91,34 +123,60 @@ const claimingId = ref(0)
 const showComplete = ref(false)
 const completingOrder = ref<any>(null)
 const resultNote = ref('')
+const boosters = ref<any[]>([])
+const services = ref<any[]>([])
+const selectedBooster = ref<any>(null)
+const selectedServiceId = ref(0)
+const showBoosterOrder = ref(false)
+const creatingOrder = ref(false)
 
 const statusText: Record<string, string> = {
   pending: '待接单', assigned: '待开始', in_progress: '服务中', submitted: '待老板确认',
   done: '已完成', settled: '已结算', cancelled: '已取消', disputed: '争议中',
 }
-const steps = [
-  { title: '首页选服务', desc: '小时陪玩、撤离护航等已上架服务都可以直接查看价格。' },
-  { title: '确认并下单', desc: '无需填写复杂申请，也不用先与客服咨询。' },
-  { title: '接单后聊天', desc: '打手接单后开放聊天，用来传房间号和对局信息。' },
-]
-
 const activeOrders = computed(() => myOrders.value.filter((o) => ['assigned', 'in_progress', 'submitted'].includes(o.status)))
 const finishedCount = computed(() => myOrders.value.filter((o) => ['done', 'settled'].includes(o.status)).length)
 const shownOrders = computed(() => tab.value === 'pool' ? poolOrders.value : myOrders.value)
+const onlineBoosters = computed(() => boosters.value.filter((item) => item.boosterStatus !== 'offline'))
+const averageRating = computed(() => onlineBoosters.value.length ? (onlineBoosters.value.reduce((sum, item) => sum + Number(item.rating || 5), 0) / onlineBoosters.value.length).toFixed(1) : '—')
 
 function canChat(order: any) { return ['assigned', 'in_progress', 'submitted', 'done', 'settled'].includes(order.status) }
-function goHome() { uni.switchTab({ url: '/pages/home/home' }) }
+function openBoosterOrder(booster: any) {
+  selectedBooster.value = booster
+  selectedServiceId.value = services.value[0]?.id || 0
+  showBoosterOrder.value = true
+}
+
+async function submitBoosterOrder() {
+  if (!selectedBooster.value || !selectedServiceId.value) return
+  if (auth.isGuest) return void uni.navigateTo({ url: '/pages/auth/login' })
+  creatingOrder.value = true
+  try {
+    const order: any = await createOrder({ serviceId: selectedServiceId.value, boosterId: selectedBooster.value.id, gameRegion: '微信区', gameRank: '不限', gameMap: '指定陪陪', bossNote: `指定陪陪：${selectedBooster.value.nickname}` })
+    showBoosterOrder.value = false
+    uni.navigateTo({ url: `/pages/boss/order-detail?id=${order.id}` })
+  } catch (e: any) { uni.showToast({ title: e?.data?.message || '下单失败', icon: 'none' }) }
+  finally { creatingOrder.value = false }
+}
 
 async function load() {
-  if (auth.userRole !== 'booster' || auth.isGuest) return
+  const isBooster = auth.userRole === 'booster' && !auth.isGuest
+  uni.setTabBarItem({ index: 1, text: isBooster ? '接单' : '陪陪' })
   loading.value = true
   try {
-    const [poolResult, myResult]: any[] = await Promise.all([getOrderPool(1, 50), getMyOrders(1, 50)])
-    poolOrders.value = poolResult.records || []
-    myOrders.value = myResult.records || []
+    if (isBooster) {
+      const [poolResult, myResult]: any[] = await Promise.all([getOrderPool(1, 50), getMyOrders(1, 50)])
+      poolOrders.value = poolResult.records || []
+      myOrders.value = myResult.records || []
+    } else {
+      const [boosterResult, serviceResult]: any[] = await Promise.all([getBoosters(1, 50), getServices()])
+      boosters.value = boosterResult || []
+      services.value = Array.isArray(serviceResult) ? serviceResult : []
+    }
   } catch {
     poolOrders.value = []
     myOrders.value = []
+    boosters.value = []
   } finally { loading.value = false }
 }
 
@@ -190,4 +248,25 @@ onShow(load)
 .result-input { width: 100%; min-height: 100px; box-sizing: border-box; padding: 13px; border: 1px solid var(--mobile-line); border-radius: 14px; background: #fff; }
 .empty-title { display: block; color: var(--mobile-ink); font-size: 16px; font-weight: 850; }
 .empty-desc { display: block; margin-top: 5px; color: var(--mobile-muted); font-size: 12px; }
+.booster-list { display: flex; flex-direction: column; gap: 11px; margin-top: 16px; }
+.booster-card { display: flex; gap: 13px; }
+.booster-avatar { position: relative; display: flex; width: 58px; height: 58px; flex: 0 0 58px; align-items: center; justify-content: center; overflow: visible; border-radius: 19px; background: linear-gradient(145deg, #dbeadd, #f7e6c9); color: #285f42; font-size: 22px; font-weight: 900; }
+.booster-avatar image { width: 100%; height: 100%; border-radius: 19px; }
+.status-dot { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #d39a4c; }
+.status-dot.idle { background: #45a667; }
+.booster-info { min-width: 0; flex: 1; }
+.booster-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.booster-title text:first-child { overflow: hidden; color: var(--mobile-ink); font-size: 16px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.booster-title text:last-child { flex: 0 0 auto; padding: 3px 8px; border-radius: 999px; background: #edf7ef; color: #397a52; font-size: 10px; font-weight: 800; }
+.booster-meta { display: flex; gap: 12px; margin-top: 5px; color: #95703f; font-size: 11px; font-weight: 750; }
+.booster-intro { display: -webkit-box; overflow: hidden; margin-top: 7px; color: var(--mobile-muted); font-size: 11px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.choose-btn { margin: 10px 0 0; padding: 8px 13px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #285f42, #65a878); color: #fff; font-size: 11px; font-weight: 850; line-height: 1.4; }
+.choose-btn[disabled] { opacity: .45; }
+.service-picker { max-height: 45vh; }
+.service-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 12px; border: 1px solid var(--mobile-line); border-radius: 14px; background: #fff; }
+.service-option.active { border-color: #65a878; background: #f0f8f1; }
+.service-option view { min-width: 0; }
+.service-option view text:first-child { display: block; color: var(--mobile-ink); font-size: 13px; font-weight: 850; }
+.service-option view text:last-child { display: block; overflow: hidden; margin-top: 3px; color: var(--mobile-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.service-option > text { flex: 0 0 auto; color: #2c704d; font-size: 15px; font-weight: 900; }
 </style>

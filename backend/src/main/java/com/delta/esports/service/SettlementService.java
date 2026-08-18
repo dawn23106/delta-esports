@@ -1,8 +1,8 @@
 package com.delta.esports.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.delta.esports.common.PageResult;
+import com.delta.esports.common.PageSupport;
 import com.delta.esports.entity.Settlement;
 import com.delta.esports.mapper.SettlementMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +18,7 @@ public class SettlementService {
     public PageResult<Settlement> page(int page, int size) {
         LambdaQueryWrapper<Settlement> qw = new LambdaQueryWrapper<>();
         qw.orderByDesc(Settlement::getCreatedAt);
-        return PageResult.of(settlementMapper.selectPage(new Page<>(page, size), qw));
+        return PageResult.of(settlementMapper.selectPage(PageSupport.of(page, size), qw));
     }
 
     @Transactional

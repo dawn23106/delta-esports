@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
 import com.delta.esports.common.JwtUtils;
 import com.delta.esports.common.PageResult;
+import com.delta.esports.common.PageSupport;
 import com.delta.esports.config.PaymentProperties;
 import com.delta.esports.dto.LoginRequest;
 import com.delta.esports.dto.LoginResponse;
@@ -134,7 +135,7 @@ public class UserService {
             qw.eq(User::getRole, role);
         }
         qw.orderByDesc(User::getCreatedAt);
-        Page<User> users = userMapper.selectPage(new Page<>(page, Math.min(Math.max(size, 1), 100)), qw);
+        Page<User> users = userMapper.selectPage(PageSupport.of(page, size), qw);
         PageResult<UserResponse> result = new PageResult<>();
         result.setRecords(users.getRecords().stream().map(UserResponse::from).collect(Collectors.toList()));
         result.setTotal(users.getTotal());
@@ -146,7 +147,7 @@ public class UserService {
 
     public PageResult<BoosterSummaryResponse> boosterPage(int page, int size) {
         Page<User> users = userMapper.selectPage(
-                new Page<>(page, Math.min(Math.max(size, 1), 100)),
+                PageSupport.of(page, size),
                 new LambdaQueryWrapper<User>()
                         .eq(User::getRole, "booster")
                         .eq(User::getStatus, "active")

@@ -3,6 +3,7 @@ package com.delta.esports.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
+import com.delta.esports.common.PageSupport;
 import com.delta.esports.dto.CompleteOrderRequest;
 import com.delta.esports.dto.CreateOrderRequest;
 import com.delta.esports.entity.*;
@@ -40,7 +41,7 @@ public class OrderService {
     public Page<Order> getPool(int page, int size) {
         LambdaQueryWrapper<Order> qw = new LambdaQueryWrapper<>();
         qw.eq(Order::getStatus, "pending").orderByDesc(Order::getCreatedAt);
-        return orderMapper.selectPage(new Page<>(page, size), qw);
+        return orderMapper.selectPage(PageSupport.of(page, size), qw);
     }
 
     public Page<Order> getMyOrders(Long userId, int page, int size, String status) {
@@ -50,7 +51,7 @@ public class OrderService {
             qw.eq(Order::getStatus, status);
         }
         qw.orderByDesc(Order::getCreatedAt);
-        return orderMapper.selectPage(new Page<>(page, size), qw);
+        return orderMapper.selectPage(PageSupport.of(page, size), qw);
     }
 
     public Order getDetail(Long id, Long userId, String role) {
@@ -211,7 +212,7 @@ public class OrderService {
             qw.eq(Order::getStatus, status);
         }
         qw.orderByDesc(Order::getCreatedAt);
-        return orderMapper.selectPage(new Page<>(page, size), qw);
+        return orderMapper.selectPage(PageSupport.of(page, size), qw);
     }
 
     @Transactional

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 
 import java.math.BigDecimal;
 
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
  */
 @Component
 @Profile("dev")
+@Order(1)
 public class DataInitializer implements CommandLineRunner {
 
     @Autowired private UserMapper userMapper;

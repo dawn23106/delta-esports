@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS t_user (
     total_orders INT DEFAULT 0,
     introduction VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_user_role_status (role, status)
 );
 
 -- 服务项目表
@@ -58,7 +59,10 @@ CREATE TABLE IF NOT EXISTS t_order (
     result_note VARCHAR(500),
     result_images TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_order_boss (boss_id),
+    KEY idx_order_booster (booster_id),
+    KEY idx_order_status (status, created_at)
 );
 
 -- 支付订单表：业务订单与第三方支付订单分离，保存回调、查单和退款状态
@@ -81,9 +85,6 @@ CREATE TABLE IF NOT EXISTS t_payment_order (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_payment_out_trade_no
-    ON t_payment_order(out_trade_no);
-
 -- 公告表
 CREATE TABLE IF NOT EXISTS t_announcement (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -104,7 +105,9 @@ CREATE TABLE IF NOT EXISTS t_gift (
     gift_image VARCHAR(500),
     price DECIMAL(10,2) DEFAULT 0.00,
     message VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_gift_sender (sender_id),
+    KEY idx_gift_receiver (receiver_id)
 );
 
 -- 资金流水表
@@ -116,7 +119,8 @@ CREATE TABLE IF NOT EXISTS t_balance_transaction (
     type VARCHAR(20) NOT NULL,
     balance_after DECIMAL(10,2),
     remark VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_balance_user (user_id, created_at)
 );
 
 -- 结算表
@@ -128,11 +132,10 @@ CREATE TABLE IF NOT EXISTS t_settlement (
     status VARCHAR(20) DEFAULT 'pending',
     remark VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_settlement_booster (booster_id),
+    CONSTRAINT uk_settlement_order UNIQUE (order_id)
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS uk_settlement_order
-    ON t_settlement(order_id);
 
 -- 评价表
 CREATE TABLE IF NOT EXISTS t_review (
@@ -143,11 +146,11 @@ CREATE TABLE IF NOT EXISTS t_review (
     rating INT DEFAULT 5,
     content VARCHAR(500),
     tags VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_review_booster (booster_id),
+    KEY idx_review_boss (boss_id),
+    CONSTRAINT uk_review_order UNIQUE (order_id)
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS uk_review_order
-    ON t_review(order_id);
 
 -- 订单双方聊天，仅在打手接单后开放
 CREATE TABLE IF NOT EXISTS t_order_message (
@@ -156,8 +159,7 @@ CREATE TABLE IF NOT EXISTS t_order_message (
     sender_id BIGINT NOT NULL,
     content VARCHAR(500) NOT NULL,
     type VARCHAR(20) DEFAULT 'text',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_order_msg_order (order_id, created_at)
 );
 
-CREATE INDEX IF NOT EXISTS idx_order_message_order_created
-    ON t_order_message(order_id, created_at);

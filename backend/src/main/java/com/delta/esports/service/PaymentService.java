@@ -3,6 +3,7 @@ package com.delta.esports.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
 import com.delta.esports.config.PaymentProperties;
+import com.delta.esports.config.RateLimitService;
 import com.delta.esports.dto.PaymentStatusResponse;
 import com.delta.esports.dto.PreparePaymentResponse;
 import com.delta.esports.entity.Order;
@@ -13,15 +14,14 @@ import com.delta.esports.mapper.UserMapper;
 import com.delta.esports.payment.WeChatMiniProgramClient;
 import com.delta.esports.payment.PaymentGateway;
 import com.delta.esports.payment.PaymentGatewayRouter;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class PaymentService {
@@ -31,20 +31,18 @@ public class PaymentService {
     private final PaymentGateway paymentGateway;
     private final WeChatMiniProgramClient weChatClient;
     private final PaymentProperties properties;
-    private final Cache<Long, Boolean> queryThrottle = CacheBuilder.newBuilder()
-            .expireAfterWrite(10, TimeUnit.SECONDS)
-            .maximumSize(10000)
-            .build();
+    private final RateLimitService rateLimitService;
 
     public PaymentService(PaymentOrderMapper paymentOrderMapper, OrderMapper orderMapper, UserMapper userMapper,
                           PaymentGatewayRouter gatewayRouter, WeChatMiniProgramClient weChatClient,
-                          PaymentProperties properties) {
+                          PaymentProperties properties, RateLimitService rateLimitService) {
         this.paymentOrderMapper = paymentOrderMapper;
         this.orderMapper = orderMapper;
         this.userMapper = userMapper;
         this.paymentGateway = gatewayRouter.active();
         this.weChatClient = weChatClient;
         this.properties = properties;
+        this.rateLimitService = rateLimitService;
     }
 
     @Transactional
@@ -100,10 +98,9 @@ public class PaymentService {
         if (payment == null) return status(order, null);
         if (!properties.isMockEnabled()
                 && ("created".equals(payment.getStatus()) || "prepared".equals(payment.getStatus()))) {
-            if (queryThrottle.getIfPresent(orderId) != null) {
+            if (!rateLimitService.tryAcquire("pay-query:" + orderId, 1, 10)) {
                 throw new BusinessException(429, "支付结果查询过于频繁，请10秒后重试");
             }
-            queryThrottle.put(orderId, Boolean.TRUE);
             Map<String, Object> remote = paymentGateway.query(payment.getOutTradeNo());
             if (number(remote.get("payStatus")) == 1) {
                 validateRemotePayment(payment, remote);
@@ -179,6 +176,34 @@ public class PaymentService {
         paymentOrderMapper.updateRefundNo(payment.getId(),
                 string(result.getOrDefault("refundNo", refundRequestNo)));
         return orderMapper.selectById(order.getId());
+    }
+
+    /**
+     * 定时任务：取消超过指定时间仍未支付的订单（含关闭第三方预下单）。
+     * @param deadline 创建时间早于该时刻的 pending_payment 订单将被取消
+     * @return 实际取消的订单数
+     */
+    @Transactional
+    public int cancelStaleUnpaidOrders(LocalDateTime deadline) {
+        List<Order> stale = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, "pending_payment")
+                .lt(Order::getCreatedAt, deadline));
+        int cancelled = 0;
+        for (Order order : stale) {
+            if (orderMapper.cancelUnpaid(order.getId()) == 0) continue;
+            PaymentOrder payment = findByOrderId(order.getId());
+            if (payment != null && "prepared".equals(payment.getStatus()) && !properties.isMockEnabled()) {
+                try {
+                    paymentGateway.close(payment.getOutTradeNo());
+                } catch (Exception ignored) {
+                    // 关单失败不阻塞其它订单；支付回调仍会按订单状态幂等处理
+                }
+                payment.setStatus("closed");
+                paymentOrderMapper.updateById(payment);
+            }
+            cancelled++;
+        }
+        return cancelled;
     }
 
     private void validateRemotePayment(PaymentOrder payment, Map<String, Object> remote) {

@@ -16,12 +16,26 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: ${BACKEND_DOCKERFILE:-Dockerfile}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      MYSQL_URL: jdbc:mysql://mysql:3306/delta_esports?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai
+      MYSQL_URL: jdbc:mysql://mysql:3306/delta_esports?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
       MYSQL_USERNAME: ${MYSQL_USERNAME:?set MYSQL_USERNAME}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
@@ -34,11 +48,20 @@ services:
       PAYMENT_REFUND_NOTIFY_URL: ${PAYMENT_REFUND_NOTIFY_URL:-}
       WECHAT_MINIPROGRAM_APP_ID: ${WECHAT_MINIPROGRAM_APP_ID:-}
       WECHAT_MINIPROGRAM_APP_SECRET: ${WECHAT_MINIPROGRAM_APP_SECRET:-}
+      BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      RATE_LIMIT_REDIS_ENABLED: ${RATE_LIMIT_REDIS_ENABLED:-true}
+      ORDER_TIMEOUT_MINUTES: ${ORDER_TIMEOUT_MINUTES:-30}
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:
   mysql_data:
+  redis_data:

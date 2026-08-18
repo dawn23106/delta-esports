@@ -13,7 +13,30 @@ request.interceptors.request.use(config => {
   return config
 })
 
-// 响应拦截器：统一错误处理
+// 单飞刷新：并发多个 401 时只发一次 refresh，其余请求排队复用结果
+let refreshPromise: Promise<string | null> | null = null
+
+function refreshAccessToken(): Promise<string | null> {
+  const auth = useAuthStore()
+  if (!auth.refreshToken) return Promise.resolve(null)
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(`${BASE_URL}/auth/refresh`, null, { params: { refreshToken: auth.refreshToken } })
+      .then(res => {
+        const body = res.data
+        if (body && typeof body === 'object' && body.code === 200 && body.data) {
+          auth.setAuth(body.data, auth.rememberMe)
+          return body.data.accessToken as string
+        }
+        return null
+      })
+      .catch(() => null)
+      .finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
+}
+
+// 响应拦截器：统一错误处理 + 401 自动续期
 request.interceptors.response.use(
   res => {
     const body = res.data
@@ -32,14 +55,20 @@ request.interceptors.response.use(
     }
     return body
   },
-  err => {
-    if (err.response?.status === 401) {
-      const auth = useAuthStore()
-      // 游客模式下 401 不跳转登录页，静默失败
-      if (!auth.isGuest) {
-        auth.logout()
-        window.location.href = `${import.meta.env.BASE_URL}login`
+  async err => {
+    const auth = useAuthStore()
+    const original = (err.config || {}) as any
+    if (err.response?.status === 401 && !auth.isGuest && auth.refreshToken && !original._retried) {
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        original._retried = true
+        // 重试时请求拦截器会重新从 store 读取新 accessToken 写入 header
+        return request(original)
       }
+    }
+    if (err.response?.status === 401 && !auth.isGuest) {
+      auth.logout()
+      window.location.href = `${import.meta.env.BASE_URL}login`
     }
     return Promise.reject(err)
   }

@@ -13,6 +13,35 @@ type RequestConfig = {
   data?: any
   params?: Record<string, any>
   header?: Record<string, string>
+  _retried?: boolean
+}
+
+// 单飞刷新：并发多个 401 时只发一次 refresh，其余请求排队复用结果
+let refreshPromise: Promise<string | null> | null = null
+
+function doRefresh(): Promise<string | null> {
+  const auth = useAuthStore()
+  if (!auth.refreshToken) return Promise.resolve(null)
+  if (!refreshPromise) {
+    refreshPromise = new Promise<string | null>((resolve) => {
+      uni.request({
+        url: `${baseUrl}/auth/refresh?refreshToken=${encodeURIComponent(auth.refreshToken)}`,
+        method: "POST",
+        header: { "Content-Type": "application/json" },
+        success: (res) => {
+          const body: any = res.data
+          if (res.statusCode === 200 && body && body.code === 200 && body.data) {
+            auth.setAuth(body.data, auth.rememberMe)
+            resolve(body.data.accessToken as string)
+          } else {
+            resolve(null)
+          }
+        },
+        fail: () => resolve(null),
+      })
+    }).finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
 }
 
 function request(config: RequestConfig): Promise<any> {
@@ -35,9 +64,17 @@ function request(config: RequestConfig): Promise<any> {
       method: config.method || "GET",
       data: config.data,
       header,
-      success: (response) => {
+      success: async (response) => {
         const body: any = response.data
         if (response.statusCode === 401) {
+          if (!auth.isGuest && auth.refreshToken && !config._retried) {
+            const newToken = await doRefresh()
+            if (newToken) {
+              config._retried = true
+              request(config).then(resolve, reject)
+              return
+            }
+          }
           if (!auth.isGuest) {
             auth.logout()
             uni.reLaunch({ url: "/pages/auth/login" })

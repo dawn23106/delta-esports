@@ -1,5 +1,6 @@
 package com.delta.esports.controller;
 
+import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
 import com.delta.esports.common.Result;
 import com.delta.esports.entity.ServiceItem;
 import com.delta.esports.config.RequireRole;
@@ -9,7 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 @Tag(name = "服务项目", description = "电竞陪玩与组队服务项目接口")
 @RestController
@@ -29,7 +30,7 @@ public class ServiceController {
     @GetMapping("/{id}")
     public Result<?> detail(@PathVariable Long id) {
         ServiceItem item = serviceItemService.findById(id);
-        if (item == null) return Result.error("服务项目不存在");
+        if (item == null) throw new BusinessException(404, "服务项目不存在");
         return Result.success(item);
     }
 

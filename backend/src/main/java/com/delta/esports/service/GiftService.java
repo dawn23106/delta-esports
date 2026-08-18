@@ -3,6 +3,7 @@ package com.delta.esports.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
+import com.delta.esports.common.PageSupport;
 import com.delta.esports.entity.Gift;
 import com.delta.esports.entity.User;
 import com.delta.esports.mapper.GiftMapper;
@@ -24,11 +25,11 @@ public class GiftService {
     public Page<Gift> page(int page, int size) {
         LambdaQueryWrapper<Gift> qw = new LambdaQueryWrapper<>();
         qw.orderByDesc(Gift::getCreatedAt);
-        return giftMapper.selectPage(new Page<>(page, size), qw);
+        return giftMapper.selectPage(PageSupport.of(page, size), qw);
     }
 
     public Page<Gift> sentBy(Long senderId, int page, int size) {
-        return giftMapper.selectPage(new Page<>(page, Math.min(Math.max(size, 1), 100)),
+        return giftMapper.selectPage(PageSupport.of(page, size),
                 new LambdaQueryWrapper<Gift>()
                         .eq(Gift::getSenderId, senderId)
                         .orderByDesc(Gift::getCreatedAt));

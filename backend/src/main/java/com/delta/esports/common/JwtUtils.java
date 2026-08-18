@@ -5,7 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -49,31 +49,31 @@ public class JwtUtils {
         claims.put("role", role);
         claims.put("tokenType", "access");
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(String.valueOf(userId))
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getKey(), SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(String.valueOf(userId))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getKey())
                 .compact();
     }
 
     public String generateRefreshToken(Long userId) {
         return Jwts.builder()
                 .claim("tokenType", "refresh")
-                .setSubject(String.valueOf(userId))
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration))
-                .signWith(getKey(), SignatureAlgorithm.HS256)
+                .subject(String.valueOf(userId))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
+                .signWith(getKey())
                 .compact();
     }
 
     public Claims parseToken(String token) {
         try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getKey())
+            return Jwts.parser()
+                    .verifyWith(getKey())
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .parseSignedClaims(token)
+                    .getPayload();
         } catch (JwtException e) {
             return null;
         }
@@ -99,6 +99,21 @@ public class JwtUtils {
     public boolean isAccessToken(String token) {
         Claims claims = parseToken(token);
         return claims != null && "access".equals(claims.get("tokenType", String.class));
+    }
+
+    /**
+     * 一次性校验并解析访问令牌：签名有效、未过期、且为 access 类型。
+     * 供拦截器使用，避免同一请求多次重复解析 JWT。
+     * @return 校验通过返回 Claims，否则返回 null
+     */
+    public Claims parseValidAccessToken(String token) {
+        Claims claims = parseToken(token);
+        if (claims == null
+                || claims.getExpiration().before(new Date())
+                || !"access".equals(claims.get("tokenType", String.class))) {
+            return null;
+        }
+        return claims;
     }
 
     public boolean isRefreshToken(String token) {

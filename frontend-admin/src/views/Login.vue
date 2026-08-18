@@ -14,6 +14,7 @@ async function handleLogin() {
   try {
     const res: any = await request.post('/auth/login', { phone: phone.value, password: password.value })
     localStorage.setItem('adminToken', res.accessToken)
+    localStorage.setItem('adminRefreshToken', res.refreshToken)
     localStorage.setItem('adminUser', JSON.stringify(res))
     ElMessage.success(`欢迎，${res.nickname}`)
     router.push('/dashboard')

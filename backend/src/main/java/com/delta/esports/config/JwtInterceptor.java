@@ -2,12 +2,13 @@ package com.delta.esports.config;
 
 import com.delta.esports.common.JwtUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Claims;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,6 +30,7 @@ public class JwtInterceptor implements HandlerInterceptor {
         boolean publicRead = "GET".equalsIgnoreCase(request.getMethod())
                 && (requestUri.equals("/api/services")
                 || requestUri.matches("/api/services/\\d+")
+                || requestUri.equals("/api/users/boosters")
                 || requestUri.equals("/api/announcements"));
         if (publicRead) return true;
 
@@ -44,7 +46,9 @@ public class JwtInterceptor implements HandlerInterceptor {
         }
 
         String token = authHeader.substring(7);
-        if (jwtUtils.isTokenExpired(token) || !jwtUtils.isAccessToken(token)) {
+        // 只解析一次：签名、过期、tokenType 一起校验，避免重复 parseToken
+        Claims claims = jwtUtils.parseValidAccessToken(token);
+        if (claims == null) {
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(401);
             Map<String, Object> body = new HashMap<>();
@@ -54,10 +58,8 @@ public class JwtInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        Long userId = jwtUtils.getUserIdFromToken(token);
-        String role = jwtUtils.getRoleFromToken(token);
-        request.setAttribute("userId", userId);
-        request.setAttribute("role", role);
+        request.setAttribute("userId", Long.valueOf(claims.getSubject()));
+        request.setAttribute("role", claims.get("role", String.class));
         return true;
     }
 }

@@ -43,7 +43,7 @@ echo [3/3] 启动前端...
 start "▲ MiniProgram Compiler" cmd /c ^
 "cd /d "%~dp0frontend-uniapp" ^
  && echo ===== Delta Esports WeChat MiniProgram ===== ^
- && echo Output: dist/build/mp-weixin ^
+ && echo Output: dist/dev/mp-weixin ^
  && echo Open the repository root in WeChat DevTools after compilation. ^
  && echo. ^
  && npm run dev:mp-weixin"
@@ -62,7 +62,7 @@ echo   ║  全部服务已启动!                            ║
 echo   ║                                            ║
 echo   ║  Backend :  http://localhost:8080           ║
 echo   ║  Swagger :  http://localhost:8080/swagger   ║
-echo   ║  MiniApp :  frontend-uniapp/dist/build/mp-weixin ║
+echo   ║  MiniApp :  frontend-uniapp/dist/dev/mp-weixin ║
 echo   ║  Admin   :  http://localhost:5174           ║
 echo   ║                                            ║
 echo   ║  使用 stop-all.cmd 停止所有服务                 ║

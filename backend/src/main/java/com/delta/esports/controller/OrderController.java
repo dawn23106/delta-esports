@@ -12,8 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 @Tag(name = "订单", description = "订单相关接口")
 @RestController
@@ -49,7 +49,7 @@ public class OrderController {
     @GetMapping("/{id}")
     public Result<?> detail(HttpServletRequest request, @PathVariable Long id) {
         Order order = orderService.getDetail(id, getUserId(request), (String) request.getAttribute("role"));
-        if (order == null) return Result.error("订单不存在");
+        if (order == null) throw new BusinessException(404, "订单不存在");
         return Result.success(order);
     }
 
