@@ -7,7 +7,7 @@
 ## [Unreleased] — Spring Boot 3 升级与错误响应统一
 
 ### Changed
-- **Spring Boot 2.7.18 → 3.3.5**，全量完成 `javax.* → jakarta.*` 迁移（23 个文件）
+- **Spring Boot 2.7.18 → 3.5.16**，全量完成 `javax.* → jakarta.*` 迁移（23 个文件），并修复 Spring Framework 6.1.x 已知 CVE
 - MyBatis-Plus 改用 `mybatis-plus-spring-boot3-starter` 3.5.7；springdoc 升级为 `springdoc-openapi-starter-webmvc-ui` 2.6.0；jjwt 升级 0.12.6 并适配新 API
 - **错误响应统一为真实 HTTP 状态码**：业务异常不再返回 `HTTP 200 + code`，改为 400/401/403/404/409/429/500/502/503 对应真实状态
 - `BusinessException(String)` 默认码由 500 改为 400，客户端错误不再被标成服务器错误
@@ -27,6 +27,7 @@
 ### Security
 - `RateLimitInterceptor` 客户端 IP 识别改用 `getRemoteAddr()`，不再信任可伪造的整段 `X-Forwarded-For`
 - 移除 `application.yml` 中无实际作用的 `logic-delete-*` 死配置
+- 前端依赖安全：`frontend-uniapp` 移除未使用的 `axios`、`vue-i18n`（消除 vue-i18n/@intlify 原型污染与 XSS 通告；`frontend-admin`/`frontend-mobile` 审计为 0 漏洞）
 
 ### Breaking
 - 业务错误响应契约变更：`HTTP 200 + {code,message}` → 真实 HTTP 状态码 + `{code,message}`（详见 `docs/migration-notes.md`）

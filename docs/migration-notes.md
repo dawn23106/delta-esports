@@ -3,18 +3,18 @@
 > 本文件记录 2.0.0 之后一次较大的技术升级，供提交 PR / 部署前查阅。
 > 全部改动已通过 `mvnw test` 与三个前端（`frontend-admin` / `frontend-mobile` / `frontend-uniapp`）的构建验证。
 
-## 1. Spring Boot 2.7 → 3.3.5
+## 1. Spring Boot 2.7 → 3.5.16
 
 ### 依赖版本变更（`backend/pom.xml`）
 
 | 依赖 | 旧版本 | 新版本 |
 | --- | --- | --- |
-| `spring-boot-starter-parent` | 2.7.18 | 3.3.5 |
+| `spring-boot-starter-parent` | 2.7.18 | 3.5.16 |
 | MyBatis-Plus | `mybatis-plus-boot-starter` 3.5.3.1 | `mybatis-plus-spring-boot3-starter` 3.5.7 |
 | springdoc | `springdoc-openapi-ui` 1.7.0 | `springdoc-openapi-starter-webmvc-ui` 2.6.0 |
 | jjwt | 0.11.5 | 0.12.6 |
 
-> 说明：Spring Boot 2.7 OSS 支持已于 2023-11 结束，本次升级消除该技术债。
+> 说明：Spring Boot 2.7 OSS 支持已于 2023-11 结束，本次升级消除该技术债；最终落在 3.5.16 以修复 Spring Framework 6.1.x 的已知 CVE（CVE-2025-22233 / 41234 / 41248 / 41249 等）。
 > MyBatis-Plus 在 Spring Boot 3 下需改用独立的 `-spring-boot3-starter` 构件。
 
 ### `javax` → `jakarta` 迁移
@@ -129,3 +129,4 @@
 4. 分布式限流依赖 Redis：`docker compose up` 会自动拉起 `redis` 服务；如需关闭分布式限流回退单机内存，设 `RATE_LIMIT_REDIS_ENABLED=false`。
 5. 抽成与提现：存量库需执行 `docs/release-migration.sql` 中 `t_settlement` 的 `ALTER TABLE` 与 `t_withdrawal` 建表；抽成比例与提现锁定期分别用 `COMMISSION_RATE`、`WITHDRAWAL_LOCK_DAYS` 配置。
 6. WebSocket 推送握手尚未鉴权，上线前需在握手阶段校验 JWT，并收紧 `WebSocketConfig` 的 `setAllowedOrigins`。
+7. **依赖安全现状**：`frontend-admin` / `frontend-mobile` 审计为 0 漏洞；后端已升到 Spring Boot 3.5.16（修复 Spring Framework CVE）；`frontend-uniapp` 剩余约 66 个漏洞全部来自 DCloud 构建工具链（devDependencies：vite/esbuild/express/jest/jimp/ws 等），**不随小程序包发布给终端用户**，需待 DCloud 发布新版后整体升级 `@dcloudio/*` 才能消除。
