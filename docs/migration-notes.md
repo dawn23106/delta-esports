@@ -121,6 +121,14 @@
 - 握手从 query 解析 userId（**尚未做鉴权，生产上线前需接入 token 校验**）；`OrderPushService` 在订单状态变化与新消息时向老板/打手推送 `ORDER_EVENT` / `ORDER_MESSAGE` JSON。
 - 前端未接入时为空操作，现有 REST 轮询不受影响。
 
+## 8. 服务列表 Redis 缓存
+
+- `GET /api/services` 改为 Cache-Aside 三步曲：先读 Redis（key `services:all`，10 分钟 TTL）→ 没有查 MySQL → 查完回填。
+- 分类筛选改为在内存中过滤（与数据库过滤结果一致），顺带天然防「缓存穿透」：乱传分类不会打到 MySQL。
+- 后台 `create/update/toggleActive` 会自动删除缓存键，保证改动立即可见；`findAllForAdmin` 不走缓存（需要最新含下架数据）。
+- 任何 Redis 异常均回源 MySQL（fail-open），本地开发不启动 Redis 也能正常运行。
+- 后续可按同一模式缓存公告、打手列表。
+
 ## 部署注意事项
 
 1. 生产环境升级前，先在存量库执行 `docs/release-migration.sql` 中新增的 `CREATE INDEX` 语句（MySQL 不支持 `CREATE INDEX IF NOT EXISTS`，请确认同名索引不存在）。
