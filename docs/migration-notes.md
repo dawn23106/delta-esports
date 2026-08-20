@@ -121,13 +121,16 @@
 - 握手从 query 解析 userId（**尚未做鉴权，生产上线前需接入 token 校验**）；`OrderPushService` 在订单状态变化与新消息时向老板/打手推送 `ORDER_EVENT` / `ORDER_MESSAGE` JSON。
 - 前端未接入时为空操作，现有 REST 轮询不受影响。
 
-## 8. 服务列表 Redis 缓存
+## 8. Redis 缓存（服务/公告/打手）
 
-- `GET /api/services` 改为 Cache-Aside 三步曲：先读 Redis（key `services:all`，10 分钟 TTL）→ 没有查 MySQL → 查完回填。
-- 分类筛选改为在内存中过滤（与数据库过滤结果一致），顺带天然防「缓存穿透」：乱传分类不会打到 MySQL。
-- 后台 `create/update/toggleActive` 会自动删除缓存键，保证改动立即可见；`findAllForAdmin` 不走缓存（需要最新含下架数据）。
-- 任何 Redis 异常均回源 MySQL（fail-open），本地开发不启动 Redis 也能正常运行。
-- 后续可按同一模式缓存公告、打手列表。
+- `GET /api/services`（列表 + 详情）、`/api/announcements`、`/api/users/boosters` 均改为 Cache-Aside 三步曲：先读 Redis → 没有查 MySQL → 查完回填。
+- 缓存键与 TTL：
+  - 服务列表 `services:all`（10 分钟）、服务详情 `services:detail:{id}`（10 分钟）
+  - 公告 `announcements:all`（10 分钟，分页在内存完成）
+  - 打手列表 `boosters:{page}:{size}`（**2 分钟**，评分/接单状态变化容忍短暂延迟，不做主动失效）
+- 后台服务/公告增删改会自动删除对应缓存键，改动立即可见；`findAllForAdmin` 不走缓存。
+- 任何 Redis 异常均回源 MySQL（fail-open），本地开发不启动 Redis 也能正常运行；`CacheSerializationTest` 覆盖所有缓存类型的 JSON 往返。
+- 为支持打手列表缓存反序列化，`BoosterSummaryResponse` 补充了 `@NoArgsConstructor/@AllArgsConstructor`。
 
 ## 部署注意事项
 

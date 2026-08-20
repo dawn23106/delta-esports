@@ -23,7 +23,7 @@
 - **平台抽成**：结算拆分为 `amount`/`commission`/`net_amount`，比例可配置（`COMMISSION_RATE`，默认 15%），打手只入账净收入
 - **提现**：`t_withdrawal` + `WithdrawalService`，结算满 `WITHDRAWAL_LOCK_DAYS`（默认 7 天）后可提现，管理员 `approve/reject/paid` 审核、驳回自动退回
 - **WebSocket 推送**：`/ws/orders` 订单状态与新消息推送（前端可后续接入，握手鉴权待补强）
-- **服务列表缓存**：`GET /api/services` 走 Redis Cache-Aside（10 分钟 TTL），Redis 不可用自动回源 MySQL，后台增删改自动失效缓存
+- **Redis 缓存**：`GET /api/services`（列表+详情）、`/api/announcements`、`/api/users/boosters` 走 Cache-Aside，Redis 不可用自动回源 MySQL，后台增删改自动失效缓存
 
 ### Security
 - `RateLimitInterceptor` 客户端 IP 识别改用 `getRemoteAddr()`，不再信任可伪造的整段 `X-Forwarded-For`

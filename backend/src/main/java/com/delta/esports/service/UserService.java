@@ -17,14 +17,18 @@ import com.delta.esports.mapper.UserMapper;
 import com.delta.esports.mapper.OrderMapper;
 import com.delta.esports.entity.Order;
 import com.delta.esports.payment.WeChatMiniProgramClient;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
@@ -41,6 +45,14 @@ public class UserService {
     private PaymentProperties paymentProperties;
     @Autowired
     private OrderMapper orderMapper;
+
+    /** 打手列表缓存：短 TTL 容忍评分/接单状态几分钟的延迟，不做主动失效 */
+    private static final long BOOSTER_CACHE_TTL_MINUTES = 2;
+
+    @Autowired
+    private StringRedisTemplate redis;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     private static final Set<String> BOOSTER_STATUSES = Set.of("idle", "busy", "offline");
 
@@ -146,6 +158,15 @@ public class UserService {
     }
 
     public PageResult<BoosterSummaryResponse> boosterPage(int page, int size) {
+        String key = "boosters:" + PageSupport.normalizePage(page) + ":" + PageSupport.normalizeSize(size);
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                return objectMapper.readValue(cached, new TypeReference<PageResult<BoosterSummaryResponse>>() {});
+            }
+        } catch (Exception ignored) {
+            // 缓存不可用/反序列化失败 → 走数据库
+        }
         Page<User> users = userMapper.selectPage(
                 PageSupport.of(page, size),
                 new LambdaQueryWrapper<User>()
@@ -159,6 +180,12 @@ public class UserService {
         result.setPage(users.getCurrent());
         result.setSize(users.getSize());
         result.setPages(users.getPages());
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(result),
+                    BOOSTER_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+        } catch (Exception ignored) {
+            // 回填失败不阻塞返回
+        }
         return result;
     }
 

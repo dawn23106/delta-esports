@@ -78,7 +78,25 @@ public class ServiceItemService {
     }
 
     public ServiceItem findById(Long id) {
-        return serviceItemMapper.selectById(id);
+        String key = detailKey(id);
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                return objectMapper.readValue(cached, ServiceItem.class);
+            }
+        } catch (Exception ignored) {
+            // 缓存不可用/反序列化失败 → 走数据库
+        }
+        ServiceItem item = serviceItemMapper.selectById(id);
+        if (item != null) {
+            try {
+                redis.opsForValue().set(key, objectMapper.writeValueAsString(item),
+                        CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+            } catch (Exception ignored) {
+                // 回填失败不阻塞返回
+            }
+        }
+        return item;
     }
 
     @Transactional
@@ -93,6 +111,7 @@ public class ServiceItemService {
         if (exist == null) throw new BusinessException("服务项目不存在");
         serviceItemMapper.updateById(item);
         evictCache();
+        evictDetail(item.getId());
     }
 
     @Transactional
@@ -102,6 +121,19 @@ public class ServiceItemService {
         item.setIsActive(active ? 1 : 0);
         serviceItemMapper.updateById(item);
         evictCache();
+        evictDetail(id);
+    }
+
+    private String detailKey(Long id) {
+        return "services:detail:" + id;
+    }
+
+    private void evictDetail(Long id) {
+        try {
+            redis.delete(detailKey(id));
+        } catch (RuntimeException ignored) {
+            // 删缓存失败不影响写操作本身
+        }
     }
 
     /** 数据被改动后删除缓存，下次请求重新加载，避免脏数据 */
