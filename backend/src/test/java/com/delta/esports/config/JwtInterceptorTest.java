@@ -1,6 +1,8 @@
 package com.delta.esports.config;
 
 import com.delta.esports.common.JwtUtils;
+import com.delta.esports.entity.User;
+import com.delta.esports.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -16,6 +18,7 @@ class JwtInterceptorTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private JwtUtils jwtUtils;
+    @Autowired private UserMapper userMapper;
 
     @Test
     void shouldReturn401WithoutToken() throws Exception {
@@ -71,5 +74,24 @@ class JwtInterceptorTest {
     void shouldAllowPublicAnnouncementEndpointWithoutToken() throws Exception {
         mockMvc.perform(get("/api/announcements"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldRejectBannedUser() throws Exception {
+        User banned = new User();
+        banned.setPhone("13800009999");
+        banned.setPassword("x");
+        banned.setNickname("封禁测试");
+        banned.setRole("boss");
+        banned.setStatus("banned");
+        userMapper.insert(banned);
+        try {
+            String token = jwtUtils.generateToken(banned.getId(), "boss");
+            mockMvc.perform(get("/api/orders/my")
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isForbidden());
+        } finally {
+            userMapper.deleteById(banned.getId());
+        }
     }
 }

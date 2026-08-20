@@ -48,6 +48,9 @@ app:
     rate: ${COMMISSION_RATE:0.15}
   withdrawal:
     lock-days: ${WITHDRAWAL_LOCK_DAYS:7}
+  redis:
+    pubsub:
+      enabled: ${REDIS_PUBSUB_ENABLED:false}
 
 mybatis-plus:
   configuration:
@@ -122,6 +125,9 @@ app:
     rate: ${COMMISSION_RATE:0.15}
   withdrawal:
     lock-days: ${WITHDRAWAL_LOCK_DAYS:7}
+  redis:
+    pubsub:
+      enabled: ${REDIS_PUBSUB_ENABLED:true}
 
 mybatis-plus:
   configuration:

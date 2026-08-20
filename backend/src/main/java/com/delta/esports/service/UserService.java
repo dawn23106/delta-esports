@@ -7,6 +7,7 @@ import com.delta.esports.common.JwtUtils;
 import com.delta.esports.common.PageResult;
 import com.delta.esports.common.PageSupport;
 import com.delta.esports.config.PaymentProperties;
+import com.delta.esports.config.RedisCacheTemplate;
 import com.delta.esports.dto.LoginRequest;
 import com.delta.esports.dto.LoginResponse;
 import com.delta.esports.dto.RegisterRequest;
@@ -18,11 +19,9 @@ import com.delta.esports.mapper.OrderMapper;
 import com.delta.esports.entity.Order;
 import com.delta.esports.payment.WeChatMiniProgramClient;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,9 +49,7 @@ public class UserService {
     private static final long BOOSTER_CACHE_TTL_MINUTES = 2;
 
     @Autowired
-    private StringRedisTemplate redis;
-    @Autowired
-    private ObjectMapper objectMapper;
+    private RedisCacheTemplate cache;
 
     private static final Set<String> BOOSTER_STATUSES = Set.of("idle", "busy", "offline");
 
@@ -159,13 +156,9 @@ public class UserService {
 
     public PageResult<BoosterSummaryResponse> boosterPage(int page, int size) {
         String key = "boosters:" + PageSupport.normalizePage(page) + ":" + PageSupport.normalizeSize(size);
-        try {
-            String cached = redis.opsForValue().get(key);
-            if (cached != null) {
-                return objectMapper.readValue(cached, new TypeReference<PageResult<BoosterSummaryResponse>>() {});
-            }
-        } catch (Exception ignored) {
-            // 缓存不可用/反序列化失败 → 走数据库
+        PageResult<BoosterSummaryResponse> cached = cache.get(key, new TypeReference<PageResult<BoosterSummaryResponse>>() {});
+        if (cached != null) {
+            return cached;
         }
         Page<User> users = userMapper.selectPage(
                 PageSupport.of(page, size),
@@ -180,12 +173,7 @@ public class UserService {
         result.setPage(users.getCurrent());
         result.setSize(users.getSize());
         result.setPages(users.getPages());
-        try {
-            redis.opsForValue().set(key, objectMapper.writeValueAsString(result),
-                    BOOSTER_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
-        } catch (Exception ignored) {
-            // 回填失败不阻塞返回
-        }
+        cache.set(key, result, BOOSTER_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         return result;
     }
 
@@ -195,6 +183,13 @@ public class UserService {
         user.setId(id);
         user.setStatus(status);
         userMapper.updateById(user);
+        // 失效用户状态缓存，让封禁/解封立即生效（JwtInterceptor 依赖）
+        cache.evict(statusCacheKey(id));
+    }
+
+    /** 用户状态缓存键（JwtInterceptor 读取、updateStatus 主动失效） */
+    public static String statusCacheKey(Long userId) {
+        return "user:status:" + userId;
     }
 
     @Transactional

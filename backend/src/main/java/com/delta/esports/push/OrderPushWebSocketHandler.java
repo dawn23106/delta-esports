@@ -13,7 +13,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 极简订单推送 WebSocket 处理器：按 userId 维护会话，向指定用户推送 JSON 文本。
+ * 极简订单推送 WebSocket 处理器：按 userId 维护本实例的会话，向本实例连接的客户端推送 JSON 文本。
+ * 跨实例广播由 {@link com.delta.esports.push.OrderPushService} 通过 Redis Pub/Sub 完成：
+ * 各实例订阅同一 channel，收到消息后调用本类的 {@link #pushToUserLocal} 推给本地会话。
  * 握手地址：/ws/orders?userId={userId}
  */
 @Component
@@ -35,7 +37,8 @@ public class OrderPushWebSocketHandler extends TextWebSocketHandler {
         userSessions.values().forEach(set -> set.remove(session));
     }
 
-    public void pushToUser(Long userId, String type, Object data) {
+    /** 仅向本实例上的该用户会话推送 */
+    public void pushToUserLocal(Long userId, String type, Object data) {
         Set<WebSocketSession> sessions = userSessions.get(userId);
         if (sessions == null || sessions.isEmpty()) return;
         Map<String, Object> message = new LinkedHashMap<>();

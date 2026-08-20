@@ -121,16 +121,25 @@
 - 握手从 query 解析 userId（**尚未做鉴权，生产上线前需接入 token 校验**）；`OrderPushService` 在订单状态变化与新消息时向老板/打手推送 `ORDER_EVENT` / `ORDER_MESSAGE` JSON。
 - 前端未接入时为空操作，现有 REST 轮询不受影响。
 
-## 8. Redis 缓存（服务/公告/打手）
+## 8. Redis 统一抽象与工程化应用
 
-- `GET /api/services`（列表 + 详情）、`/api/announcements`、`/api/users/boosters` 均改为 Cache-Aside 三步曲：先读 Redis → 没有查 MySQL → 查完回填。
-- 缓存键与 TTL：
-  - 服务列表 `services:all`（10 分钟）、服务详情 `services:detail:{id}`（10 分钟）
-  - 公告 `announcements:all`（10 分钟，分页在内存完成）
-  - 打手列表 `boosters:{page}:{size}`（**2 分钟**，评分/接单状态变化容忍短暂延迟，不做主动失效）
-- 后台服务/公告增删改会自动删除对应缓存键，改动立即可见；`findAllForAdmin` 不走缓存。
-- 任何 Redis 异常均回源 MySQL（fail-open），本地开发不启动 Redis 也能正常运行；`CacheSerializationTest` 覆盖所有缓存类型的 JSON 往返。
-- 为支持打手列表缓存反序列化，`BoosterSummaryResponse` 补充了 `@NoArgsConstructor/@AllArgsConstructor`。
+### 统一缓存抽象 `RedisCacheTemplate`
+
+- 新增 `RedisCacheTemplate`（`backend/.../config/RedisCacheTemplate.java`）：统一 key 前缀（`delta:`）、统一 Jackson 序列化、统一 fail-open（get 返回 null / set、evict 静默失败）。
+- 提供 `get(key, Type/Class)`、`set(key, value, ttl)`、`evict(key)`、`tryLock(key[, ttl])` / `unlock(key)`。
+- 各 Service 的缓存读写全部收敛到该模板，消除重复的 try/catch 样板。
+
+### 缓存场景
+
+- 服务列表 `delta:services:all`（10 分钟）、服务详情 `delta:services:detail:{id}`（10 分钟）、公告 `delta:announcements:all`（10 分钟，分页内存完成）、打手列表 `delta:boosters:{page}:{size}`（2 分钟短 TTL）。
+- 后台服务/公告增删改自动失效；`findAllForAdmin` 不走缓存。
+- `CacheSerializationTest` 覆盖所有缓存类型的 JSON 往返；`BoosterSummaryResponse` 补充 `@NoArgsConstructor/@AllArgsConstructor` 以支持反序列化。
+
+### 其它 Redis 应用
+
+- **WebSocket 跨实例广播（Pub/Sub）**：`OrderPushService` 将事件发布到 channel `delta:orders:push`，各实例经 `RedisPubSubConfig` 订阅后投递给本地 WebSocket 会话；未启用/Redis 不可用时退化为本地直推。`REDIS_PUBSUB_ENABLED`（dev 默认 false，prod 默认 true）。
+- **定时任务多实例互斥（分布式锁）**：`OrderTimeoutScheduler` 用 `tryLock("order-cleanup", 120s)` 保证多实例下只有一个实例执行超时清理。
+- **用户封禁即时生效（状态缓存+主动失效）**：`JwtInterceptor` 校验用户状态（Redis 缓存 TTL 5 分钟），`UserService.updateStatus` 主动失效缓存，封禁/解封立即生效；用户不存在返回 401、被封禁返回 403。
 
 ## 部署注意事项
 
