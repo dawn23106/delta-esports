@@ -49,9 +49,10 @@ public class RateLimitService {
                 // Redis 不可用，落到单机内存限流
             }
         }
-        Long current = fallback.getIfPresent(key);
-        long next = (current == null ? 0L : current) + 1L;
-        fallback.put(key, next);
+        // Cache 本身线程安全，但 get + increment + put 不是一个原子操作。
+        // 通过 ConcurrentMap.compute 对同一个限流键原子计数，避免并发请求丢计数。
+        Long next = fallback.asMap().compute(
+                key, (ignored, current) -> current == null ? 1L : current + 1L);
         return next <= limit;
     }
 }

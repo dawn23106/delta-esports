@@ -35,7 +35,8 @@ public class OrderTimeoutScheduler {
     @Scheduled(fixedDelayString = "${app.order-timeout.scan-ms:60000}",
             initialDelayString = "${app.order-timeout.initial-delay-ms:60000}")
     public void cancelStaleUnpaidOrders() {
-        if (!cache.tryLock(CLEANUP_LOCK_KEY, CLEANUP_LOCK_TTL_SECONDS)) {
+        String lockToken = cache.acquireLock(CLEANUP_LOCK_KEY, CLEANUP_LOCK_TTL_SECONDS);
+        if (lockToken == null) {
             return; // 已有其它实例在跑本轮清理
         }
         try {
@@ -45,7 +46,7 @@ public class OrderTimeoutScheduler {
                 log.info("Order timeout cleanup: cancelled {} stale unpaid order(s)", cancelled);
             }
         } finally {
-            cache.unlock(CLEANUP_LOCK_KEY);
+            cache.releaseLock(CLEANUP_LOCK_KEY, lockToken);
         }
     }
 }

@@ -34,7 +34,10 @@ public class OrderPushWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        userSessions.values().forEach(set -> set.remove(session));
+        userSessions.entrySet().removeIf(entry -> {
+            entry.getValue().remove(session);
+            return entry.getValue().isEmpty();
+        });
     }
 
     /** 仅向本实例上的该用户会话推送 */
@@ -48,10 +51,21 @@ public class OrderPushWebSocketHandler extends TextWebSocketHandler {
             String json = objectMapper.writeValueAsString(message);
             for (WebSocketSession session : sessions) {
                 try {
-                    session.sendMessage(new TextMessage(json));
-                } catch (Exception ignored) {
-                    // 单个会话发送失败不影响其它会话
+                    // Spring WebSocketSession 不保证并发 sendMessage 安全；会话只属于
+                    // 当前 JVM，因此以 session 为粒度串行发送，不阻塞其他用户的会话。
+                    synchronized (session) {
+                        if (session.isOpen()) {
+                            session.sendMessage(new TextMessage(json));
+                        } else {
+                            sessions.remove(session);
+                        }
+                    }
+                } catch (Exception sendFailure) {
+                    sessions.remove(session); // 失效会话及时清理，不影响其它会话
                 }
+            }
+            if (sessions.isEmpty()) {
+                userSessions.remove(userId, sessions);
             }
         } catch (Exception ignored) {
             // 序列化失败忽略
