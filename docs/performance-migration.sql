@@ -1,6 +1,8 @@
 -- Delta Esports 查询性能索引（已有生产库执行一次）
 -- 新环境已由 schema.sql 自动创建。执行前会先判断索引是否存在，脚本可重复运行。
 
+DROP PROCEDURE IF EXISTS add_index_if_missing;
+
 DELIMITER $$
 CREATE PROCEDURE add_index_if_missing(
     IN p_table VARCHAR(64), IN p_index VARCHAR(64), IN p_columns VARCHAR(255)
