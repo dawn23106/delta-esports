@@ -20,8 +20,11 @@ public class OrderMessageController {
     private OrderMessageService messageService;
 
     @GetMapping("/{orderId}")
-    public Result<?> list(HttpServletRequest request, @PathVariable Long orderId) {
-        return Result.success(messageService.list(getUserId(request), orderId));
+    public Result<?> list(HttpServletRequest request,
+                          @PathVariable Long orderId,
+                          @RequestParam(required = false) Long beforeId,
+                          @RequestParam(defaultValue = "50") int limit) {
+        return Result.success(messageService.list(getUserId(request), orderId, beforeId, limit));
     }
 
     @PostMapping

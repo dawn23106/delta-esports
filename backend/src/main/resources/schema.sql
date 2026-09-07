@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS t_user (
     introduction VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_user_role_status (role, status)
+    KEY idx_user_role_status_rating (role, status, rating)
 );
 
 -- 服务项目表
@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS t_service_item (
     is_active TINYINT DEFAULT 1,
     sort_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_service_active_sort (is_active, sort_order)
 );
 
 -- 订单表
@@ -60,9 +61,9 @@ CREATE TABLE IF NOT EXISTS t_order (
     result_images TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_order_boss (boss_id),
-    KEY idx_order_booster (booster_id),
-    KEY idx_order_status (status, created_at)
+    KEY idx_order_boss_created (boss_id, created_at, id),
+    KEY idx_order_booster_created (booster_id, created_at, id),
+    KEY idx_order_status_created (status, created_at, id)
 );
 
 -- 支付订单表：业务订单与第三方支付订单分离，保存回调、查单和退款状态
@@ -93,7 +94,8 @@ CREATE TABLE IF NOT EXISTS t_announcement (
     status VARCHAR(20) DEFAULT 'published',
     sort_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_announcement_sort_created (sort_order, created_at)
 );
 
 -- 礼物记录表
@@ -106,8 +108,8 @@ CREATE TABLE IF NOT EXISTS t_gift (
     price DECIMAL(10,2) DEFAULT 0.00,
     message VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_gift_sender (sender_id),
-    KEY idx_gift_receiver (receiver_id)
+    KEY idx_gift_sender_created (sender_id, created_at),
+    KEY idx_gift_receiver_created (receiver_id, created_at)
 );
 
 -- 资金流水表
@@ -136,7 +138,8 @@ CREATE TABLE IF NOT EXISTS t_settlement (
     remark VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_settlement_booster (booster_id),
+    KEY idx_settlement_booster_status_created (booster_id, status, created_at),
+    KEY idx_settlement_created (created_at),
     CONSTRAINT uk_settlement_order UNIQUE (order_id)
 );
 
@@ -150,8 +153,8 @@ CREATE TABLE IF NOT EXISTS t_review (
     content VARCHAR(500),
     tags VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_review_booster (booster_id),
-    KEY idx_review_boss (boss_id),
+    KEY idx_review_booster_created (booster_id, created_at),
+    KEY idx_review_boss_created (boss_id, created_at),
     CONSTRAINT uk_review_order UNIQUE (order_id)
 );
 
@@ -163,7 +166,7 @@ CREATE TABLE IF NOT EXISTS t_order_message (
     content VARCHAR(500) NOT NULL,
     type VARCHAR(20) DEFAULT 'text',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_order_msg_order (order_id, created_at)
+    KEY idx_order_msg_cursor (order_id, id)
 );
 
 -- 提现申请表：陪陪将结算满 7 天的净收入提现
@@ -176,6 +179,8 @@ CREATE TABLE IF NOT EXISTS t_withdrawal (
     reviewed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_withdrawal_user (user_id)
+    KEY idx_withdrawal_user_created (user_id, created_at),
+    KEY idx_withdrawal_user_status (user_id, status),
+    KEY idx_withdrawal_status_created (status, created_at)
 );
 

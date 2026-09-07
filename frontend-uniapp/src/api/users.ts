@@ -20,9 +20,9 @@ export function changePassword(oldPassword: string, newPassword: string) {
   return request.put("/users/me/password", { oldPassword, newPassword })
 }
 
-/** 获取聊天消息 */
-export function getMessages(orderId: number) {
-  return request.get(`/messages/${orderId}`)
+/** 获取聊天消息；beforeId 用于向前加载历史记录，避免深分页。 */
+export function getMessages(orderId: number, beforeId?: number, limit = 50) {
+  return request.get(`/messages/${orderId}`, { params: { beforeId, limit } })
 }
 
 /** 发送消息 */

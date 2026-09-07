@@ -79,6 +79,7 @@ app:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    default-statement-timeout: ${DB_STATEMENT_TIMEOUT_SECONDS:10}
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
@@ -165,6 +166,7 @@ app:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    default-statement-timeout: ${DB_STATEMENT_TIMEOUT_SECONDS:5}
   global-config:
     db-config:
       id-type: auto

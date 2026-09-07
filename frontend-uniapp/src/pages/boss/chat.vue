@@ -14,6 +14,7 @@
       <view class="security-tip">请勿发送账号密码；这里只沟通房间号、开局时间和对局信息。</view>
       <view v-if="pageLoading" class="chat-loading">加载中…</view>
       <template v-else>
+        <view v-if="hasOlder" class="load-older" @tap="loadOlder">{{ loadingOlder ? '加载中…' : '查看更早消息' }}</view>
         <view v-for="(group, gi) in groupedMessages" :key="group.date">
           <view class="date-divider"><text>{{ group.date }}</text></view>
           <view v-for="(msg, mi) in group.items" :id="`msg-${gi}-${mi}`" :key="msg.id || `${gi}-${mi}`" :class="['msg-row', { mine: msg.senderId === auth.userId }]">
@@ -56,9 +57,12 @@ const messages = ref<any[]>([])
 const inputText = ref('')
 const loading = ref(false)
 const pageLoading = ref(true)
+const loadingOlder = ref(false)
+const hasOlder = ref(false)
 const orderInfo = ref<any>(null)
 const scrollToId = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
+const MESSAGE_PAGE_SIZE = 50
 
 const statusLabels: Record<string, string> = { assigned: '待开始', in_progress: '服务中', submitted: '待确认', done: '已完成', settled: '已归档', cancelled: '已取消' }
 const canSendMessage = computed(() => ['assigned', 'in_progress'].includes(orderInfo.value?.status))
@@ -91,9 +95,32 @@ function copyRoomCode() { uni.setClipboardData({ data: roomCode.value, success: 
 async function loadOrder() { try { orderInfo.value = await getOrderDetail(orderId.value) } catch { orderInfo.value = null } }
 async function loadMessages(showLoading = false) {
   if (showLoading) pageLoading.value = true
-  try { const result: any = await getMessages(orderId.value); messages.value = result || []; scrollToBottom() }
+  try {
+    const result: any = await getMessages(orderId.value, undefined, MESSAGE_PAGE_SIZE)
+    const latest: any[] = result || []
+    if (showLoading || messages.value.length === 0) {
+      messages.value = latest
+      hasOlder.value = latest.length === MESSAGE_PAGE_SIZE
+    } else {
+      const byId = new Map(messages.value.filter((item) => item.id).map((item) => [item.id, item]))
+      latest.forEach((item) => byId.set(item.id, item))
+      messages.value = Array.from(byId.values()).sort((a, b) => a.id - b.id)
+    }
+    scrollToBottom()
+  }
   catch { if (showLoading) messages.value = [] }
   finally { pageLoading.value = false }
+}
+async function loadOlder() {
+  const firstId = messages.value.find((item) => item.id)?.id
+  if (!firstId || loadingOlder.value) return
+  loadingOlder.value = true
+  try {
+    const result: any = await getMessages(orderId.value, firstId, MESSAGE_PAGE_SIZE)
+    const older: any[] = result || []
+    messages.value = [...older, ...messages.value]
+    hasOlder.value = older.length === MESSAGE_PAGE_SIZE
+  } finally { loadingOlder.value = false }
 }
 async function sendMessage() {
   const content = inputText.value.trim()
@@ -122,6 +149,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 .copy-btn { padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.15); font-size: 11px; }
 .chat-body { height: calc(100vh - 175px); box-sizing: border-box; padding: 12px 14px 150px; }
 .security-tip { padding: 8px 10px; border-radius: 10px; background: #fff8e9; color: #806d55; font-size: 10px; text-align: center; }
+.load-older { margin: 10px auto 0; color: #557361; font-size: 11px; text-align: center; }
 .chat-loading, .empty-chat { padding: 55px 20px; color: var(--mobile-muted); text-align: center; }
 .empty-chat text { display: block; margin-top: 5px; font-size: 12px; }
 .date-divider { margin: 14px 0; color: var(--mobile-faint); font-size: 10px; text-align: center; }

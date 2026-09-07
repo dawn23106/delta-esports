@@ -13,8 +13,11 @@ const messages = ref<any[]>([])
 const inputText = ref('')
 const loading = ref(false)
 const pageLoading = ref(true)
+const loadingOlder = ref(false)
+const hasOlder = ref(false)
 const orderInfo = ref<any>(null)
 const { requireLogin } = useAuthGuard()
+const MESSAGE_PAGE_SIZE = 50
 
 const statusLabels: Record<string, string> = {
   pending: '待接单', assigned: '已接单', in_progress: '进行中',
@@ -49,8 +52,9 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 
 async function loadMessages() {
   try {
-    const res: any = await request.get(`/messages/${orderId}`)
+    const res: any = await request.get(`/messages/${orderId}`, { params: { limit: MESSAGE_PAGE_SIZE } })
     messages.value = res || []
+    hasOlder.value = messages.value.length === MESSAGE_PAGE_SIZE
     scrollBottom()
   } catch (e: any) {
     if (e?.response?.status === 403) {
@@ -64,13 +68,35 @@ async function loadMessages() {
 
 async function pollMessages() {
   try {
-    const res: any = await request.get(`/messages/${orderId}`)
+    const res: any = await request.get(`/messages/${orderId}`, { params: { limit: MESSAGE_PAGE_SIZE } })
     const latest: any[] = res || []
-    if (latest.length !== messages.value.length || messages.value.some((m: any) => !m.id)) {
-      messages.value = latest
+    const newestKnownId = messages.value.filter((m: any) => m.id).at(-1)?.id
+    const newestReceivedId = latest.at(-1)?.id
+    if (newestReceivedId !== newestKnownId || messages.value.some((m: any) => !m.id)) {
+      const byId = new Map(messages.value.filter((m: any) => m.id).map((m: any) => [m.id, m]))
+      latest.forEach((m: any) => byId.set(m.id, m))
+      messages.value = Array.from(byId.values()).sort((a: any, b: any) => a.id - b.id)
       scrollBottom()
     }
   } catch { /* 静默跳过 */ }
+}
+
+async function loadOlder() {
+  const firstId = messages.value.find((m: any) => m.id)?.id
+  if (!firstId || loadingOlder.value) return
+  loadingOlder.value = true
+  try {
+    const res: any = await request.get(`/messages/${orderId}`, {
+      params: { beforeId: firstId, limit: MESSAGE_PAGE_SIZE },
+    })
+    const older: any[] = res || []
+    messages.value = [...older, ...messages.value]
+    hasOlder.value = older.length === MESSAGE_PAGE_SIZE
+  } catch {
+    showToast('历史消息加载失败')
+  } finally {
+    loadingOlder.value = false
+  }
 }
 
 function senderLabel(msg: any): string {
@@ -99,13 +125,8 @@ async function sendMessage() {
   if (!await requireLogin('发送消息')) return
   loading.value = true
   try {
-    await request.post('/messages', null, { params: { orderId, content: inputText.value, type: 'text' } })
-    messages.value.push({
-      senderId: auth.userId,
-      content: inputText.value,
-      type: 'text',
-      createdAt: new Date().toISOString(),
-    })
+    const saved: any = await request.post('/messages', null, { params: { orderId, content: inputText.value, type: 'text' } })
+    messages.value.push(saved)
     inputText.value = ''
     scrollBottom()
   } catch (e: any) {
@@ -192,6 +213,10 @@ onUnmounted(() => {
             {{ statusLabels[orderInfo.status] || orderInfo.status }}
           </span>
         </div>
+
+        <button v-if="hasOlder" type="button" class="load-older" :disabled="loadingOlder" @click="loadOlder">
+          {{ loadingOlder ? '加载中…' : '查看更早消息' }}
+        </button>
 
         <div v-for="group in groupedMessages" :key="group.date">
           <div class="date-divider">
@@ -326,6 +351,15 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   padding-top: 60px;
+}
+
+.load-older {
+  display: block;
+  margin: 0 auto 12px;
+  border: 0;
+  background: transparent;
+  color: var(--mobile-brand);
+  font-size: 12px;
 }
 
 /* ---- 订单信息条 ---- */

@@ -2,6 +2,7 @@ package com.delta.esports.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.delta.esports.common.GlobalExceptionHandler.BusinessException;
+import com.delta.esports.common.PageSupport;
 import com.delta.esports.entity.Order;
 import com.delta.esports.entity.OrderMessage;
 import com.delta.esports.mapper.OrderMapper;
@@ -10,6 +11,7 @@ import com.delta.esports.push.OrderPushService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -25,14 +27,16 @@ public class OrderMessageService {
     @Autowired
     private OrderPushService orderPushService;
 
-    public List<OrderMessage> list(Long userId, Long orderId) {
+    public List<OrderMessage> list(Long userId, Long orderId, Long beforeId, int limit) {
         Order order = requireParticipant(userId, orderId);
         if (order.getBoosterId() == null) {
             throw new BusinessException(400, "订单接单后才会开启聊天");
         }
-        return messageMapper.selectList(new LambdaQueryWrapper<OrderMessage>()
-                .eq(OrderMessage::getOrderId, orderId)
-                .orderByAsc(OrderMessage::getCreatedAt));
+        Long cursor = beforeId != null && beforeId > 0 ? beforeId : null;
+        List<OrderMessage> messages = messageMapper.selectRecent(
+                orderId, cursor, PageSupport.normalizeSize(limit));
+        Collections.reverse(messages);
+        return messages;
     }
 
     public OrderMessage send(Long userId, Long orderId, String content, String type) {
