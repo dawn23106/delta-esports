@@ -6,7 +6,10 @@ CREATE PROCEDURE add_index_if_missing(
     IN p_table VARCHAR(64), IN p_index VARCHAR(64), IN p_columns VARCHAR(255)
 )
 BEGIN
-    IF NOT EXISTS (
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = p_table
+    ) AND NOT EXISTS (
         SELECT 1 FROM information_schema.statistics
         WHERE table_schema = DATABASE() AND table_name = p_table AND index_name = p_index
     ) THEN
